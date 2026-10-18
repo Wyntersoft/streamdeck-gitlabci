@@ -44,18 +44,6 @@ test("projects mode turns through the listed projects", () => {
 	assert.deepEqual(dialTargets({ dialMode: "projects" }), []);
 });
 
-test("settings saved before dialList existed still work", () => {
-	// Projects typed into the old Branches box while in projects mode.
-	assert.deepEqual(
-		dialTargets({ dialMode: "projects", dialBranches: "a/b\nc/d" }).map((t) => t.project),
-		["a/b", "c/d"],
-	);
-	assert.deepEqual(
-		dialTargets({ project: "g/p", dialBranches: "main\ndev" }).map((t) => t.ref),
-		["main", "dev"],
-	);
-});
-
 test("step wraps in both directions", () => {
 	assert.equal(step(0, 1, 3), 1);
 	assert.equal(step(2, 1, 3), 0);

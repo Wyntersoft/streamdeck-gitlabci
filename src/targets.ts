@@ -23,10 +23,6 @@ export type TargetSettings = {
 	 * updated branches), `group/project` or `group/project@branch` in projects mode.
 	 */
 	dialList?: string;
-	/** @deprecated Replaced by {@link dialList}; still read so earlier settings keep working. */
-	dialBranches?: string;
-	/** @deprecated Replaced by {@link dialList}. */
-	dialProjects?: string;
 };
 
 const lines = (value: string | undefined) =>
@@ -48,14 +44,9 @@ export function keyTarget(settings: TargetSettings): Target | undefined {
 	return settings.project?.trim() ? parseTarget(settings.project, settings.ref) : undefined;
 }
 
-function dialList(settings: TargetSettings): string[] {
-	if (settings.dialList !== undefined) return lines(settings.dialList);
-	return lines(settings.dialMode === "projects" ? settings.dialProjects || settings.dialBranches : settings.dialBranches);
-}
-
 /** True when a dial needs the project's branch list from GitLab. */
 export function needsBranchList(settings: TargetSettings): boolean {
-	return settings.dialMode !== "projects" && !!settings.project?.trim() && dialList(settings).length === 0;
+	return settings.dialMode !== "projects" && !!settings.project?.trim() && lines(settings.dialList).length === 0;
 }
 
 /**
@@ -63,7 +54,7 @@ export function needsBranchList(settings: TargetSettings): boolean {
  * `recentBranches` (non-default branches, newest first).
  */
 export function dialTargets(settings: TargetSettings, recentBranches: string[] = []): Target[] {
-	const list = dialList(settings);
+	const list = lines(settings.dialList);
 	if (settings.dialMode === "projects") {
 		if (list.length) return list.map((entry) => parseTarget(entry));
 		const single = keyTarget(settings);
