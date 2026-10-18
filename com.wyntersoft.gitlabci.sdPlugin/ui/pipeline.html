@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+	<title>GitLab CI Pipeline Settings</title>
+	<meta charset="utf-8" />
+	<script src="sdpi-components.js"></script>
+</head>
+
+<body>
+	<sdpi-heading>Pipeline</sdpi-heading>
+	<sdpi-item label="Project">
+		<sdpi-textfield setting="project" placeholder="group/project or URL" required></sdpi-textfield>
+	</sdpi-item>
+	<sdpi-item label="Branch / tag">
+		<sdpi-textfield setting="ref" placeholder="default branch"></sdpi-textfield>
+	</sdpi-item>
+	<sdpi-item label="Label">
+		<sdpi-textfield setting="label" placeholder="project name"></sdpi-textfield>
+	</sdpi-item>
+	<sdpi-item label="Refresh">
+		<sdpi-select setting="pollSeconds" default="60" value-type="number">
+			<option value="15">15 seconds</option>
+			<option value="30">30 seconds</option>
+			<option value="60">1 minute</option>
+			<option value="120">2 minutes</option>
+			<option value="300">5 minutes</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-heading>GitLab account (all keys)</sdpi-heading>
+	<sdpi-item label="GitLab URL">
+		<sdpi-textfield setting="gitlabUrl" global placeholder="https://gitlab.com"></sdpi-textfield>
+	</sdpi-item>
+	<sdpi-item label="Access token">
+		<sdpi-password setting="token" global placeholder="read_api scope"></sdpi-password>
+	</sdpi-item>
+
+	<details>
+		<summary>Override for this key</summary>
+		<sdpi-item label="GitLab URL">
+			<sdpi-textfield setting="gitlabUrl" placeholder="use account setting"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Access token">
+			<sdpi-password setting="token" placeholder="use account setting"></sdpi-password>
+		</sdpi-item>
+	</details>
+</body>
+
+</html>

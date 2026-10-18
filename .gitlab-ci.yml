@@ -1,0 +1,30 @@
+stages:
+  - test
+  - package
+
+default:
+  image: node:24
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+test:
+  stage: test
+  script:
+    - npm run typecheck
+    - npm test
+
+package:
+  stage: package
+  script:
+    - npm run build
+    - npx streamdeck validate com.wyntersoft.gitlabci.sdPlugin
+    - npm run pack
+  artifacts:
+    name: "com.wyntersoft.gitlabci-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/*.streamDeckPlugin
+    expire_in: 30 days

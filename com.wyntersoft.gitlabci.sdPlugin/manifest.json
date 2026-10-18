@@ -1,0 +1,51 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"Name": "GitLab CI",
+	"Version": "0.1.0.0",
+	"Author": "Wyntersoft",
+	"Description": "Watch GitLab CI pipelines from your Stream Deck. Each key shows the live status of the latest pipeline for a project and branch; press to open it in your browser.",
+	"Category": "GitLab CI",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"Icon": "imgs/plugin/marketplace",
+	"URL": "https://github.com/wyntersoft/streamdeck-gitlabci",
+	"CodePath": "bin/plugin.js",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "24",
+		"Debug": "enabled"
+	},
+	"UUID": "com.wyntersoft.gitlabci",
+	"Actions": [
+		{
+			"Name": "Pipeline Status",
+			"UUID": "com.wyntersoft.gitlabci.pipeline",
+			"Icon": "imgs/actions/pipeline/icon",
+			"Tooltip": "Shows the status of the latest pipeline for a GitLab project. Press to open it.",
+			"PropertyInspectorPath": "ui/pipeline.html",
+			"SupportedInMultiActions": false,
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pipeline/key",
+					"ShowTitle": true,
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	]
+}
