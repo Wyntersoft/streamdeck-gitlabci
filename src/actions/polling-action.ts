@@ -52,6 +52,8 @@ const ANIMATION_MS = 250;
 const LONG_PRESS_MS = 600;
 /** Wait for the dial to settle before polling, so spinning through a list doesn't fire a request per tick. */
 const ROTATE_SETTLE_MS = 400;
+/** Wait for typing in the property inspector to pause before polling. */
+const SETTINGS_SETTLE_MS = 700;
 
 /**
  * Base for key and dial actions that periodically poll GitLab and render the result. Handles appearance, settings
@@ -97,7 +99,9 @@ export abstract class PollingAction<TSettings extends PollSettings, TData> exten
 		if (!watch) return;
 		watch.settings = ev.payload.settings;
 		watch.data = undefined;
-		void this.refresh(watch);
+		this.#stop(watch);
+		watch.generation++;
+		watch.pollTimer = setTimeout(() => void this.refresh(watch), SETTINGS_SETTLE_MS);
 	}
 
 	override onKeyDown(ev: KeyDownEvent<TSettings>): void {

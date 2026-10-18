@@ -73,11 +73,14 @@ export type GitLabErrorKind = "auth" | "forbidden" | "not-found" | "no-pipeline"
 export class GitLabError extends Error {
 	readonly kind: GitLabErrorKind;
 	readonly status?: number;
+	/** GitLab's own error message, without request details. */
+	readonly apiMessage: string;
 
-	constructor(message: string, kind: GitLabErrorKind, status?: number) {
+	constructor(message: string, kind: GitLabErrorKind, status?: number, apiMessage = message) {
 		super(message);
 		this.kind = kind;
 		this.status = status;
+		this.apiMessage = apiMessage;
 	}
 }
 
@@ -120,11 +123,12 @@ async function request<T>(conn: Connection, method: "GET" | "POST", path: string
 
 	if (!res.ok) {
 		const body = (await res.json().catch(() => undefined)) as { message?: unknown; error?: unknown } | undefined;
-		const message = String(body?.message ?? body?.error ?? res.statusText);
-		if (res.status === 401 || body?.error === "insufficient_scope") throw new GitLabError(message, "auth", res.status);
-		if (res.status === 403) throw new GitLabError(message, "forbidden", res.status);
-		if (res.status === 404) throw new GitLabError(message, "not-found", res.status);
-		throw new GitLabError(message, "http", res.status);
+		const apiMessage = String(body?.message ?? body?.error ?? res.statusText);
+		// Name the request in the message so logs show which instance/path failed (never the token).
+		const message = `${apiMessage} (${method} ${url.split("?")[0]})`;
+		const kind: GitLabErrorKind =
+			res.status === 401 || body?.error === "insufficient_scope" ? "auth" : res.status === 403 ? "forbidden" : res.status === 404 ? "not-found" : "http";
+		throw new GitLabError(message, kind, res.status, apiMessage);
 	}
 	return (await res.json()) as T;
 }
@@ -157,8 +161,8 @@ export async function fetchLatestPipeline(conn: Connection, projectId: string, r
 		return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/latest${query}`, fetchFn));
 	} catch (err) {
 		// For a readable project whose ref has no pipeline GitLab answers 403 (or 404 without "Project" in the message).
-		if (err instanceof GitLabError && (err.kind === "forbidden" || (err.kind === "not-found" && !/project/i.test(err.message)))) {
-			throw new GitLabError(err.message, "no-pipeline", err.status);
+		if (err instanceof GitLabError && (err.kind === "forbidden" || (err.kind === "not-found" && !/project/i.test(err.apiMessage)))) {
+			throw new GitLabError(err.message, "no-pipeline", err.status, err.apiMessage);
 		}
 		throw err;
 	}
