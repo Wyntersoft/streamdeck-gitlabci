@@ -11,6 +11,7 @@ import {
 	normalizeBaseUrl,
 	parseProject,
 	retryPipeline,
+	sortRunners,
 } from "../src/gitlab.ts";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -129,4 +130,12 @@ test("fetchRunnerFleet counts runners and queue", async () => {
 		"POST graphql": () => json(200, { data: { jobs: null }, errors: [{ message: "denied" }] }),
 	});
 	assert.deepEqual(await fetchRunnerFleet(conn, user), { total: 1, online: 1, busy: 1, queued: undefined });
+});
+
+test("sortRunners orders by name then ID", () => {
+	const r = (id: number, name: string) => ({ id, name, status: "online", paused: false, busy: false, type: "instance_type" });
+	assert.deepEqual(
+		sortRunners([r(3, "b"), r(2, "a"), r(1, "b")]).map((x) => x.id),
+		[2, 1, 3],
+	);
 });

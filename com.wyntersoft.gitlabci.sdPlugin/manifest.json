@@ -3,7 +3,7 @@
 	"Name": "GitLab CI",
 	"Version": "0.1.0.0",
 	"Author": "Wyntersoft",
-	"Description": "Watch GitLab CI from your Stream Deck keys and dials. Branch shows the latest pipeline's status (tap to retry a failed build, hold to cancel a running one; turn a dial to switch branch or project). Runner shows what a runner is building (turn a dial to switch runner). Runner Health summarises runners online, building and queued jobs.",
+	"Description": "Watch GitLab CI from your Stream Deck keys and dials. Branch shows the latest pipeline's status (tap to retry a failed build, hold to cancel a running one; turn a dial to switch branch or project). Runner Health summarises runners online, building and queued jobs; turn its dial to see what each runner is building. Runner Status keys show a single runner.",
 	"Category": "GitLab CI",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"Icon": "imgs/plugin/marketplace",
@@ -61,12 +61,11 @@
 			"Name": "Runner Status",
 			"UUID": "com.wyntersoft.gitlabci.runner",
 			"Icon": "imgs/actions/runner/icon",
-			"Tooltip": "Shows whether a runner is idle or what it's building.",
+			"Tooltip": "Shows whether a runner is idle or what it's building. (On dials, use Runner Health.)",
 			"PropertyInspectorPath": "ui/runner.html",
 			"SupportedInMultiActions": false,
 			"Controllers": [
-				"Keypad",
-				"Encoder"
+				"Keypad"
 			],
 			"States": [
 				{
@@ -74,19 +73,13 @@
 					"ShowTitle": true,
 					"TitleAlignment": "middle"
 				}
-			],
-			"Encoder": {
-				"layout": "layouts/canvas.json",
-				"TriggerDescription": {
-					"Rotate": "Switch runner"
-				}
-			}
+			]
 		},
 		{
 			"Name": "Runner Health",
 			"UUID": "com.wyntersoft.gitlabci.health",
 			"Icon": "imgs/actions/health/icon",
-			"Tooltip": "Runners online, runners building, and jobs waiting for a runner.",
+			"Tooltip": "Runners online, building, and jobs queued. On a dial, turn to see each runner.",
 			"PropertyInspectorPath": "ui/health.html",
 			"SupportedInMultiActions": false,
 			"Controllers": [
@@ -101,7 +94,10 @@
 				}
 			],
 			"Encoder": {
-				"layout": "layouts/canvas.json"
+				"layout": "layouts/canvas.json",
+				"TriggerDescription": {
+					"Rotate": "Overview / each runner"
+				}
 			}
 		}
 	]

@@ -213,14 +213,25 @@ export async function listRunners(conn: Connection, fetchFn: FetchFn = fetch): P
  * administrator token; for other tokens it is left undefined.
  */
 export async function fetchRunnerFleet(conn: Connection, fetchFn: FetchFn = fetch): Promise<RunnerFleet> {
-	const [runners, queued] = await Promise.all([
-		listRunners(conn, fetchFn),
-		request<{ data?: { jobs?: { count?: number } | null } }>(conn, "POST", "graphql", fetchFn, { query: "{ jobs(statuses: [PENDING]) { count } }" })
-			.then((res) => res.data?.jobs?.count ?? undefined)
-			.catch(() => undefined),
-	]);
+	const [runners, queued] = await Promise.all([listRunners(conn, fetchFn), fetchQueuedJobs(conn, fetchFn)]);
+	return summarizeRunners(runners, queued);
+}
+
+/** Number of jobs waiting for a runner across the instance; undefined unless the token belongs to an administrator. */
+export async function fetchQueuedJobs(conn: Connection, fetchFn: FetchFn = fetch): Promise<number | undefined> {
+	return request<{ data?: { jobs?: { count?: number } | null } }>(conn, "POST", "graphql", fetchFn, { query: "{ jobs(statuses: [PENDING]) { count } }" })
+		.then((res) => res.data?.jobs?.count ?? undefined)
+		.catch(() => undefined);
+}
+
+export function summarizeRunners(runners: Runner[], queued?: number): RunnerFleet {
 	const online = runners.filter((r) => r.status === "online" && !r.paused);
 	return { total: runners.length, online: online.length, busy: online.filter((r) => r.busy).length, queued };
+}
+
+/** Sorts runners by name (then ID) so dials and dropdowns list them in a stable order. */
+export function sortRunners(runners: Runner[]): Runner[] {
+	return [...runners].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }
 
 /** Jobs the runner is currently executing. */

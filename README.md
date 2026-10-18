@@ -31,15 +31,19 @@ The configured project/branch is always the first entry; the strip shows the pos
 Retry and cancel can be turned off with the checkboxes in the settings. They need a token with `api` scope;
 with a `read_api` token the key is view-only.
 
-### Runner Status
+### Runner Status (keys)
 Pick a runner from the dropdown. The key shows **Idle**, **Paused**, **Offline/Stale**, or, while busy,
-the project, ref and job it's running (with elapsed time). Turning a dial switches between all the
-runners the token can see. Presses do nothing.
+the project, ref and job it's running (with elapsed time). Presses do nothing. On dials, use
+Runner Health, which includes every runner's status.
 
 ### Runner Health
 Summarises every runner the token can see: runners online, runners building, and jobs queued
 waiting for a runner. Red when no runner is online, yellow when jobs are queued, cyan while building,
 green when idle. Queue depth needs an administrator token (shows `?` otherwise). Display only.
+
+On a dial the overview is position 1, and **turning** steps through each runner's status (as on a
+Runner Status key), then wraps back to the overview. The runner list is re-read on every poll, so
+new or removed runners show up without any configuration.
 
 ## Requirements
 
@@ -79,7 +83,7 @@ npm run icons      # regenerate the PNG icons in imgs/
 | `src/actions/polling-action.ts` | Shared polling, animation, tap/hold and dial rotation |
 | `src/actions/branch-status.ts` | Branch key: status, tap to retry, hold to cancel |
 | `src/actions/runner-status.ts` | Runner key and its runner dropdown |
-| `src/actions/runner-health.ts` | Runner health key |
+| `src/actions/runner-health.ts` | Runner health key; on dials, overview plus each runner |
 | `com.wyntersoft.gitlabci.sdPlugin/` | Manifest, property inspector, images |
 
 CI runs the tests and attaches the packaged `.streamDeckPlugin` to each pipeline.
