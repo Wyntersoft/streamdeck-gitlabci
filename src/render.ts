@@ -49,22 +49,45 @@ export function pipelineStyle(p: Pipeline): Style {
 	return PIPELINE_STYLES[p.status] ?? { ...DARK, glyph: "question" };
 }
 
-export function renderKey(view: KeyView, now: Date = new Date()): string {
+/** Layout-independent description of what a key or dial shows. */
+type Card = {
+	colors: Colors;
+	title: string;
+	footer: string;
+	body: { type: "glyph"; glyph: Glyph; frame?: number } | { type: "lines"; lines: [string, string] } | { type: "rows"; rows: [string, string][] };
+};
+
+function card(view: KeyView, now: Date): Card {
+	const glyph = (colors: Colors, title: string, g: Glyph, footer: string, frame?: number): Card => ({ colors, title, footer, body: { type: "glyph", glyph: g, frame } });
 	switch (view.kind) {
 		case "setup":
-			return compose(DARK, view.title, drawGlyph("gear", WHITE), "Configure");
+			return glyph(DARK, view.title, "gear", "Configure");
 		case "loading":
-			return compose(DARK, view.label, drawGlyph("spinner", WHITE), "Loading…");
+			return glyph(DARK, view.label, "spinner", "Loading…");
 		case "error":
-			return compose({ background: "#5C1A1A", foreground: WHITE }, view.label, drawGlyph("alert", WHITE), view.message);
+			return glyph({ background: "#5C1A1A", foreground: WHITE }, view.label, "alert", view.message);
 		case "pipeline": {
 			const style = pipelineStyle(view.pipeline);
-			return compose(style, view.label, drawGlyph(style.glyph, style.foreground, view.frame), `${view.pipeline.ref} · ${timeLabel(view.pipeline, now)}`);
+			return glyph(style, view.label, style.glyph, `${view.pipeline.ref} · ${timeLabel(view.pipeline, now)}`, view.frame);
 		}
 		case "runner":
-			return renderRunner(view, now);
-		case "health":
-			return renderHealth(view);
+			return runnerCard(view, now);
+		case "health": {
+			const { fleet } = view;
+			return {
+				colors: healthColors(fleet),
+				title: view.label,
+				footer: "",
+				body: {
+					type: "rows",
+					rows: [
+						[`${fleet.online}/${fleet.total}`, "online"],
+						[`${fleet.busy}`, "building"],
+						[fleet.queued === undefined ? "?" : `${fleet.queued}`, "queued"],
+					],
+				},
+			};
+		}
 	}
 }
 
@@ -76,39 +99,89 @@ export function healthColors(fleet: RunnerFleet): Colors {
 	return GREEN;
 }
 
-function renderHealth(view: Extract<KeyView, { kind: "health" }>): string {
-	const { fleet } = view;
-	const colors = healthColors(fleet);
-	const row = (y: number, value: string, caption: string) =>
-		`<text x="16" y="${y}" font-family="${FONT}" font-size="24" font-weight="bold" fill="${colors.foreground}">${escapeXml(value)}` +
-		`<tspan font-size="17" font-weight="normal" dx="6">${escapeXml(caption)}</tspan></text>`;
-	const middle =
-		row(64, `${fleet.online}/${fleet.total}`, "online") + row(96, `${fleet.busy}`, "building") + row(128, fleet.queued === undefined ? "?" : `${fleet.queued}`, "queued");
-	return compose(colors, view.label, middle, "");
-}
-
-function renderRunner(view: Extract<KeyView, { kind: "runner" }>, now: Date): string {
+function runnerCard(view: Extract<KeyView, { kind: "runner" }>, now: Date): Card {
 	const { runner, jobs } = view;
-	if (runner.paused) return compose(GREY, view.label, drawGlyph("pause", WHITE), "Paused");
-	if (runner.status !== "online") return compose(GREY, view.label, drawGlyph("cancel", WHITE), runner.status === "stale" ? "Stale" : "Offline");
-	if (jobs.length === 0) return compose(DARK, view.label, drawGlyph("idle", WHITE), "Idle");
+	const glyph = (colors: Colors, g: Glyph, footer: string): Card => ({ colors, title: view.label, footer, body: { type: "glyph", glyph: g } });
+	if (runner.paused) return glyph(GREY, "pause", "Paused");
+	if (runner.status !== "online") return glyph(GREY, "cancel", runner.status === "stale" ? "Stale" : "Offline");
+	if (jobs.length === 0) return glyph(DARK, "idle", "Idle");
 
 	const [job] = jobs;
 	const elapsed = job.startedAt ? formatDuration(now.getTime() - Date.parse(job.startedAt)) : "";
-	const bottom = jobs.length > 1 ? [`${jobs.length} jobs`, elapsed].filter(Boolean).join(" · ") : [job.name, elapsed].filter(Boolean).join(" · ");
-	const middle = text(fit(job.project, 11), 72, 22, "bold", CYAN.foreground) + text(fit(job.ref, 14), 99, 17, "normal", CYAN.foreground);
-	return compose(CYAN, view.label, middle, bottom);
+	const footer = [jobs.length > 1 ? `${jobs.length} jobs` : job.name, elapsed].filter(Boolean).join(" · ");
+	return { colors: CYAN, title: view.label, footer, body: { type: "lines", lines: [job.project, job.ref] } };
 }
 
-function compose(colors: Colors, top: string, middle: string, bottom: string): string {
-	const svg =
-		`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
-		`<rect width="144" height="144" fill="${colors.background}"/>` +
-		text(fit(top, 12), 30, 20, "bold", colors.foreground) +
-		middle +
-		text(fit(bottom, 16), 130, 16, "normal", colors.foreground) +
-		`</svg>`;
+/** Renders a 144x144 key image. */
+export function renderKey(view: KeyView, now: Date = new Date()): string {
+	const c = card(view, now);
+	const fg = c.colors.foreground;
+	let body: string;
+	switch (c.body.type) {
+		case "glyph":
+			body = drawGlyph(c.body.glyph, fg, c.body.frame);
+			break;
+		case "lines":
+			body = text(fit(c.body.lines[0], 11), 72, 72, 22, "bold", fg) + text(fit(c.body.lines[1], 14), 72, 99, 17, "normal", fg);
+			break;
+		case "rows":
+			body = c.body.rows.map(([value, caption], i) => row(16, 64 + i * 32, value, caption, fg)).join("");
+			break;
+	}
+	const svg = canvas(144, 144, c.colors, text(fit(c.title, 12), 72, 30, 20, "bold", fg) + body + text(fit(c.footer, 16), 72, 130, 16, "normal", fg));
 	return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Renders a 200x100 image for a dial's touch strip. `position` (e.g. "2/5") marks where the dial is in the list it
+ * turns through.
+ */
+export function renderDial(view: KeyView, now: Date = new Date(), position?: string): string {
+	const c = card(view, now);
+	const fg = c.colors.foreground;
+	let body: string;
+	switch (c.body.type) {
+		case "glyph":
+			// Glyphs are drawn for a 144px key centred on (72, 74); shrink and move them to the left half.
+			body =
+				`<g transform="translate(${50 - 72 * 0.8} ${52 - 74 * 0.8}) scale(0.8)">${drawGlyph(c.body.glyph, fg, c.body.frame)}</g>` +
+				text(fit(c.title, 9), 100, 36, 19, "bold", fg, "start") +
+				// The right column is narrow, so "ref · time" goes on two lines.
+				c.footer
+					.split(" · ")
+					.slice(0, 2)
+					.map((part, i) => text(fit(part, 14), 100, 62 + i * 22, 14, "normal", fg, "start"))
+					.join("");
+			break;
+		case "lines":
+			body =
+				text(fit(c.title, 16), 100, 22, 15, "bold", fg) +
+				text(fit(c.body.lines[0], 15), 100, 50, 21, "bold", fg) +
+				text(fit(c.body.lines[1], 22), 100, 72, 15, "normal", fg) +
+				text(fit(c.footer, 24), 100, 93, 14, "normal", fg);
+			break;
+		case "rows":
+			body =
+				text(fit(c.title, 16), 100, 22, 15, "bold", fg) +
+				c.body.rows.map(([value, caption], i) => text(value, 36 + i * 64, 62, 26, "bold", fg) + text(caption, 36 + i * 64, 86, 14, "normal", fg)).join("");
+			break;
+	}
+	if (position) body += `<text x="194" y="15" font-family="${FONT}" font-size="12" fill="${fg}" fill-opacity="0.75" text-anchor="end">${escapeXml(position)}</text>`;
+	return `data:image/svg+xml;base64,${Buffer.from(canvas(200, 100, c.colors, body)).toString("base64")}`;
+}
+
+function canvas(width: number, height: number, colors: Colors, body: string): string {
+	return (
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+		`<rect width="${width}" height="${height}" fill="${colors.background}"/>${body}</svg>`
+	);
+}
+
+function row(x: number, y: number, value: string, caption: string, color: string): string {
+	return (
+		`<text x="${x}" y="${y}" font-family="${FONT}" font-size="24" font-weight="bold" fill="${color}">${escapeXml(value)}` +
+		`<tspan font-size="17" font-weight="normal" dx="6">${escapeXml(caption)}</tspan></text>`
+	);
 }
 
 /** Elapsed time for running pipelines, time since completion otherwise. */
@@ -133,8 +206,8 @@ export function fit(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
-function text(value: string, y: number, size: number, weight: string, color: string): string {
-	return `<text x="72" y="${y}" font-family="${FONT}" font-size="${size}" font-weight="${weight}" fill="${color}" text-anchor="middle">${escapeXml(value)}</text>`;
+function text(value: string, x: number, y: number, size: number, weight: string, color: string, anchor: "middle" | "start" = "middle"): string {
+	return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" font-weight="${weight}" fill="${color}" text-anchor="${anchor}">${escapeXml(value)}</text>`;
 }
 
 function escapeXml(value: string): string {

@@ -1,6 +1,7 @@
 # streamdeck-gitlabci
 
 A Stream Deck plugin for watching GitLab CI. Works with gitlab.com and self-hosted GitLab.
+Every action works on keys and on Stream Deck + dials (touch strip).
 
 ## Actions
 
@@ -18,17 +19,27 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 - **Tap** retries a failed or canceled pipeline.
 - **Hold** (0.6 s) cancels a running pipeline.
 
-Both can be turned off with the checkboxes in the key's settings. They need a token with `api` scope;
+On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** on the strip do the same.
+**Turning** the dial switches what it shows, set under *Dial* in its settings:
+
+- **switches branch** turns through the listed branches (one per line), or, if the list is blank,
+  the project's 20 most recently updated branches.
+- **switches project** turns through the listed projects (`group/project` or `group/project@branch`).
+
+The configured project/branch is always the first entry; the strip shows the position (e.g. `2/5`).
+
+Retry and cancel can be turned off with the checkboxes in the settings. They need a token with `api` scope;
 with a `read_api` token the key is view-only.
 
 ### Runner Status
 Pick a runner from the dropdown. The key shows **Idle**, **Paused**, **Offline/Stale**, or, while busy,
-the project, ref and job it's running (with elapsed time). Key presses do nothing.
+the project, ref and job it's running (with elapsed time). Turning a dial switches between all the
+runners the token can see. Presses do nothing.
 
 ### Runner Health
 Summarises every runner the token can see: runners online, runners building, and jobs queued
 waiting for a runner. Red when no runner is online, yellow when jobs are queued, cyan while building,
-green when idle. Queue depth needs an administrator token (shows `?` otherwise). Key presses do nothing.
+green when idle. Queue depth needs an administrator token (shows `?` otherwise). Display only.
 
 ## Requirements
 
@@ -63,8 +74,9 @@ npm run icons      # regenerate the PNG icons in imgs/
 | Path | Purpose |
 | --- | --- |
 | `src/gitlab.ts` | GitLab REST/GraphQL client |
-| `src/render.ts` | Renders key images as SVG |
-| `src/actions/polling-action.ts` | Shared polling, timers and animation |
+| `src/render.ts` | Renders key (144×144) and dial (200×100) images as SVG |
+| `src/targets.ts` | Which project/branch a branch key or dial shows |
+| `src/actions/polling-action.ts` | Shared polling, animation, tap/hold and dial rotation |
 | `src/actions/branch-status.ts` | Branch key: status, tap to retry, hold to cancel |
 | `src/actions/runner-status.ts` | Runner key and its runner dropdown |
 | `src/actions/runner-health.ts` | Runner health key |

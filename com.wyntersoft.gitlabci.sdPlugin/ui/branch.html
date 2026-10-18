@@ -18,12 +18,26 @@
 	<sdpi-item label="Label">
 		<sdpi-textfield setting="label" placeholder="project name"></sdpi-textfield>
 	</sdpi-item>
-	<sdpi-item label="Tap">
+	<sdpi-item label="Tap / push">
 		<sdpi-checkbox setting="allowRetry" default="true" label="Retry failed pipeline"></sdpi-checkbox>
 	</sdpi-item>
 	<sdpi-item label="Hold">
 		<sdpi-checkbox setting="allowCancel" default="true" label="Cancel running pipeline"></sdpi-checkbox>
 	</sdpi-item>
+	<sdpi-heading>Dial</sdpi-heading>
+	<sdpi-item label="Turning">
+		<sdpi-select setting="dialMode" default="branches">
+			<option value="branches">switches branch</option>
+			<option value="projects">switches project</option>
+		</sdpi-select>
+	</sdpi-item>
+	<sdpi-item label="Branches">
+		<sdpi-textarea setting="dialBranches" rows="3" placeholder="one per line; blank = recently updated branches"></sdpi-textarea>
+	</sdpi-item>
+	<sdpi-item label="Projects">
+		<sdpi-textarea setting="dialProjects" rows="3" placeholder="one per line: group/project or group/project@branch"></sdpi-textarea>
+	</sdpi-item>
+
 	<sdpi-item label="Refresh">
 		<sdpi-select setting="pollSeconds" default="60" value-type="number">
 			<option value="15">15 seconds</option>

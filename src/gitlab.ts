@@ -245,3 +245,11 @@ export function isActive(status: PipelineStatus): boolean {
 export function isRetryable(status: PipelineStatus): boolean {
 	return status === "failed" || status === "canceled";
 }
+
+export type Branch = { name: string; isDefault: boolean };
+
+/** The project's most recently updated branches. */
+export async function listBranches(conn: Connection, projectId: string, limit = 20, fetchFn: FetchFn = fetch): Promise<Branch[]> {
+	const branches = await request<{ name: string; default?: boolean }[]>(conn, "GET", `${project(projectId)}/repository/branches?per_page=${limit}&sort=updated_desc`, fetchFn);
+	return branches.map((b) => ({ name: b.name, isDefault: !!b.default }));
+}
