@@ -99,9 +99,11 @@ export async function fetchLatestPipeline(query: ProjectQuery, fetchFn: FetchFn 
 	}
 
 	if (!res.ok) {
-		const body = await res.json().catch(() => undefined);
-		const message = String((body as { message?: unknown } | undefined)?.message ?? res.statusText);
-		if (res.status === 401 || res.status === 403) throw new GitLabError(message, "auth", res.status);
+		const body = (await res.json().catch(() => undefined)) as { message?: unknown; error?: unknown } | undefined;
+		const message = String(body?.message ?? body?.error ?? res.statusText);
+		if (res.status === 401 || body?.error === "insufficient_scope") throw new GitLabError(message, "auth", res.status);
+		// GitLab answers 403 for a readable project whose ref has never had a pipeline.
+		if (res.status === 403) throw new GitLabError(message, "no-pipeline", res.status);
 		if (res.status === 404) {
 			// GitLab answers 404 both for unknown/inaccessible projects and for refs that have no pipeline.
 			const kind = /project/i.test(message) ? "not-found" : "no-pipeline";

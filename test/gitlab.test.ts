@@ -43,12 +43,14 @@ test("fetchLatestPipeline omits ref and token when not given", async () => {
 });
 
 test("fetchLatestPipeline classifies errors", async () => {
-	const kind = (status: number, message: string) =>
-		fetchLatestPipeline({ baseUrl: "https://gl.test", project: "p" }, async () => json(status, { message })).then(
+	const kind = (status: number, message: string, error?: string) =>
+		fetchLatestPipeline({ baseUrl: "https://gl.test", project: "p" }, async () => json(status, error ? { error } : { message })).then(
 			() => assert.fail("expected rejection"),
 			(err: GitLabError) => err.kind,
 		);
 	assert.equal(await kind(401, "401 Unauthorized"), "auth");
+	assert.equal(await kind(403, "", "insufficient_scope"), "auth");
+	assert.equal(await kind(403, "403 Forbidden"), "no-pipeline");
 	assert.equal(await kind(404, "404 Project Not Found"), "not-found");
 	assert.equal(await kind(404, "404 Not found"), "no-pipeline");
 	assert.equal(await kind(500, "boom"), "http");
