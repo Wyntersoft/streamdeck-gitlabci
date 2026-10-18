@@ -1,6 +1,6 @@
 /**
- * Works out which project/ref a branch key or dial shows. Dials can turn through a list of branches of one project or
- * a list of projects.
+ * Works out which project/ref a branch key or dial shows. A key shows one project/ref; a dial turns through either the
+ * branches of one project or a list of projects.
  */
 import { parseProject } from "./gitlab.ts";
 
@@ -18,9 +18,14 @@ export type TargetSettings = {
 	project?: string;
 	ref?: string;
 	dialMode?: DialMode;
-	/** One branch per line; blank means the project's recently updated branches. */
+	/**
+	 * What a dial turns through, one per line: branch names in branches mode (blank means the project's recently
+	 * updated branches), `group/project` or `group/project@branch` in projects mode.
+	 */
+	dialList?: string;
+	/** @deprecated Replaced by {@link dialList}; still read so earlier settings keep working. */
 	dialBranches?: string;
-	/** One `group/project` or `group/project@branch` per line. */
+	/** @deprecated Replaced by {@link dialList}. */
 	dialProjects?: string;
 };
 
@@ -38,24 +43,37 @@ export function parseTarget(entry: string, ref?: string): Target {
 	return { ...parsed, ref: entryRef || undefined };
 }
 
-/** True when the dial needs the project's branch list from GitLab. */
+/** What a key shows. */
+export function keyTarget(settings: TargetSettings): Target | undefined {
+	return settings.project?.trim() ? parseTarget(settings.project, settings.ref) : undefined;
+}
+
+function dialList(settings: TargetSettings): string[] {
+	if (settings.dialList !== undefined) return lines(settings.dialList);
+	return lines(settings.dialMode === "projects" ? settings.dialProjects || settings.dialBranches : settings.dialBranches);
+}
+
+/** True when a dial needs the project's branch list from GitLab. */
 export function needsBranchList(settings: TargetSettings): boolean {
-	return (settings.dialMode ?? "branches") === "branches" && lines(settings.dialBranches).length === 0;
+	return settings.dialMode !== "projects" && !!settings.project?.trim() && dialList(settings).length === 0;
 }
 
 /**
- * Every target the dial turns through, the configured project/ref first. `recentBranches` (non-default branches,
- * newest first) is used in branches mode when no list is configured.
+ * Everything a dial turns through. In branches mode without a configured list, that's the default branch followed by
+ * `recentBranches` (non-default branches, newest first).
  */
-export function targets(settings: TargetSettings, recentBranches: string[] = []): Target[] {
+export function dialTargets(settings: TargetSettings, recentBranches: string[] = []): Target[] {
+	const list = dialList(settings);
+	if (settings.dialMode === "projects") {
+		if (list.length) return list.map((entry) => parseTarget(entry));
+		const single = keyTarget(settings);
+		return single ? [single] : [];
+	}
+
 	if (!settings.project?.trim()) return [];
-	const primary = parseTarget(settings.project, settings.ref);
-
-	if (settings.dialMode === "projects") return [primary, ...lines(settings.dialProjects).map((entry) => parseTarget(entry))];
-
-	const refs = lines(settings.dialBranches);
-	const others = (refs.length ? refs : recentBranches).filter((ref) => ref !== primary.ref);
-	return [primary, ...others.map((ref) => ({ ...primary, ref }))];
+	const project = parseTarget(settings.project);
+	const refs: (string | undefined)[] = list.length ? list : [undefined, ...recentBranches];
+	return refs.map((ref) => ({ ...project, ref }));
 }
 
 /** Steps `index` by `ticks` through a list of `length` items, wrapping at both ends. */

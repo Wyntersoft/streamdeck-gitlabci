@@ -20,13 +20,15 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 - **Hold** (0.6 s) cancels a running pipeline.
 
 On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** on the strip do the same.
-**Turning** the dial switches what it shows, set under *Dial* in its settings:
+**Turning** the dial switches what it shows. Its settings only show the fields for the chosen mode:
 
-- **switches branch** turns through the listed branches (one per line), or, if the list is blank,
-  the project's 20 most recently updated branches.
-- **switches project** turns through the listed projects (`group/project` or `group/project@branch`).
+- **Turn to switch: branches of a project**: set *Project*, and optionally list *Branches*
+  (one per line). With the list blank it turns through the default branch followed by the 20 most
+  recently updated branches.
+- **Turn to switch: projects**: list *Projects*, one per line, as `group/project` or
+  `group/project@branch` (default branch when no branch is given).
 
-The configured project/branch is always the first entry; the strip shows the position (e.g. `2/5`).
+The strip shows the position (e.g. `2/5`), and the dial remembers where it was.
 
 Retry and cancel can be turned off with the checkboxes in the settings. They need a token with `api` scope;
 with a `read_api` token the key is view-only.

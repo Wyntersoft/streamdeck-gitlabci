@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { needsBranchList, parseTarget, step, targets } from "../src/targets.ts";
+import { dialTargets, keyTarget, needsBranchList, parseTarget, step } from "../src/targets.ts";
 
 test("parseTarget", () => {
 	assert.deepEqual(parseTarget("g/p"), { project: "g/p", ref: undefined });
@@ -10,34 +10,50 @@ test("parseTarget", () => {
 	assert.deepEqual(parseTarget("https://gl.test/g/p/-/pipelines"), { project: "g/p", baseUrl: "https://gl.test", ref: undefined });
 });
 
-test("no project means no targets", () => {
-	assert.deepEqual(targets({}), []);
+test("keys show the configured project and branch", () => {
+	assert.equal(keyTarget({}), undefined);
+	assert.deepEqual(keyTarget({ project: "g/p", ref: "dev", dialMode: "projects", dialList: "x/y" }), { project: "g/p", ref: "dev" });
 });
 
-test("branches mode uses the configured list, else recent branches", () => {
-	const settings = { project: "g/p", ref: "main", dialBranches: "main\ndev\n\n release " };
+test("branches mode turns through the listed branches", () => {
+	const settings = { project: "g/p", ref: "ignored-on-dials", dialList: "main\ndev\n\n release " };
+	assert.equal(needsBranchList(settings), false);
 	assert.deepEqual(
-		targets(settings).map((t) => t.ref),
+		dialTargets(settings).map((t) => t.ref),
 		["main", "dev", "release"],
 	);
-	assert.equal(needsBranchList(settings), false);
-
-	const auto = { project: "g/p" };
-	assert.equal(needsBranchList(auto), true);
-	assert.deepEqual(
-		targets(auto, ["feat-a", "feat-b"]).map((t) => t.ref),
-		[undefined, "feat-a", "feat-b"],
-	);
 });
 
-test("projects mode lists projects with optional refs", () => {
-	const settings = { project: "g/p", dialMode: "projects" as const, dialProjects: "g/q\nother/r@dev" };
+test("branches mode without a list uses the default branch then recent branches", () => {
+	const settings = { project: "g/p" };
+	assert.equal(needsBranchList(settings), true);
+	assert.deepEqual(
+		dialTargets(settings, ["feat-a", "feat-b"]).map((t) => t.ref),
+		[undefined, "feat-a", "feat-b"],
+	);
+	assert.deepEqual(dialTargets({ dialList: "main" }), []);
+});
+
+test("projects mode turns through the listed projects", () => {
+	const settings = { dialMode: "projects" as const, dialList: "g/q\nother/r@dev" };
 	assert.equal(needsBranchList(settings), false);
-	assert.deepEqual(targets(settings), [
-		{ project: "g/p", ref: undefined },
+	assert.deepEqual(dialTargets(settings), [
 		{ project: "g/q", ref: undefined },
 		{ project: "other/r", ref: "dev" },
 	]);
+	assert.deepEqual(dialTargets({ dialMode: "projects" }), []);
+});
+
+test("settings saved before dialList existed still work", () => {
+	// Projects typed into the old Branches box while in projects mode.
+	assert.deepEqual(
+		dialTargets({ dialMode: "projects", dialBranches: "a/b\nc/d" }).map((t) => t.project),
+		["a/b", "c/d"],
+	);
+	assert.deepEqual(
+		dialTargets({ project: "g/p", dialBranches: "main\ndev" }).map((t) => t.ref),
+		["main", "dev"],
+	);
 });
 
 test("step wraps in both directions", () => {

@@ -4,11 +4,12 @@
 <head lang="en">
 	<title>Runner Status Settings</title>
 	<meta charset="utf-8" />
+	<link rel="stylesheet" href="pi.css" />
 	<script src="sdpi-components.js"></script>
 </head>
 
 <body>
-	<sdpi-heading>Runner</sdpi-heading>
+	<h3 class="heading">Runner</h3>
 	<sdpi-item label="Runner">
 		<sdpi-select setting="runnerId" datasource="getRunners" show-refresh placeholder="Select a runner"></sdpi-select>
 	</sdpi-item>
@@ -25,7 +26,7 @@
 		</sdpi-select>
 	</sdpi-item>
 
-	<sdpi-heading>GitLab account (all keys)</sdpi-heading>
+	<h3 class="heading">GitLab account (all keys)</h3>
 	<sdpi-item label="GitLab URL">
 		<sdpi-textfield setting="gitlabUrl" global placeholder="https://gitlab.com"></sdpi-textfield>
 	</sdpi-item>

@@ -1,0 +1,30 @@
+/* Section headings for the property inspectors, matching Stream Deck's own UI. */
+.heading {
+	margin: 18px 0 6px;
+	padding-left: 8px;
+	font: 600 11px/1.2 "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #969696;
+}
+
+.heading:first-child {
+	margin-top: 4px;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+.hint {
+	margin: 4px 8px 8px;
+	font: 12px/1.4 "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+	color: #969696;
+}
+
+details summary {
+	margin: 12px 0 6px 8px;
+	font: 12px "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+	color: #969696;
+	cursor: pointer;
+}

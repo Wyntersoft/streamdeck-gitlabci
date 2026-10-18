@@ -4,40 +4,47 @@
 <head lang="en">
 	<title>Branch Status Settings</title>
 	<meta charset="utf-8" />
+	<link rel="stylesheet" href="pi.css" />
 	<script src="sdpi-components.js"></script>
 </head>
 
 <body>
-	<sdpi-heading>Branch</sdpi-heading>
-	<sdpi-item label="Project">
-		<sdpi-textfield setting="project" placeholder="group/project or URL" required></sdpi-textfield>
+	<!-- Dials only: what turning the dial switches between. -->
+	<div data-show="dial">
+		<h3 class="heading">Dial</h3>
+		<sdpi-item label="Turn to switch">
+			<sdpi-select id="dialMode" setting="dialMode" default="branches">
+				<option value="branches">branches of a project</option>
+				<option value="projects">projects</option>
+			</sdpi-select>
+		</sdpi-item>
+	</div>
+
+	<h3 class="heading" data-show="key dial:branches">Pipeline</h3>
+	<sdpi-item label="Project" data-show="key dial:branches">
+		<sdpi-textfield setting="project" placeholder="group/project or URL"></sdpi-textfield>
 	</sdpi-item>
-	<sdpi-item label="Branch / tag">
+	<sdpi-item label="Branch / tag" data-show="key">
 		<sdpi-textfield setting="ref" placeholder="default branch"></sdpi-textfield>
 	</sdpi-item>
-	<sdpi-item label="Label">
+	<sdpi-item label="Label" data-show="key">
 		<sdpi-textfield setting="label" placeholder="project name"></sdpi-textfield>
 	</sdpi-item>
-	<sdpi-item label="Tap / push">
-		<sdpi-checkbox setting="allowRetry" default="true" label="Retry failed pipeline"></sdpi-checkbox>
+
+	<sdpi-item label="Branches" data-show="dial:branches">
+		<sdpi-textarea setting="dialList" rows="4" placeholder="one per line, e.g.&#10;main&#10;develop&#10;&#10;leave blank for the recently updated branches"></sdpi-textarea>
 	</sdpi-item>
-	<sdpi-item label="Hold">
-		<sdpi-checkbox setting="allowCancel" default="true" label="Cancel running pipeline"></sdpi-checkbox>
-	</sdpi-item>
-	<sdpi-heading>Dial</sdpi-heading>
-	<sdpi-item label="Turning">
-		<sdpi-select setting="dialMode" default="branches">
-			<option value="branches">switches branch</option>
-			<option value="projects">switches project</option>
-		</sdpi-select>
-	</sdpi-item>
-	<sdpi-item label="Branches">
-		<sdpi-textarea setting="dialBranches" rows="3" placeholder="one per line; blank = recently updated branches"></sdpi-textarea>
-	</sdpi-item>
-	<sdpi-item label="Projects">
-		<sdpi-textarea setting="dialProjects" rows="3" placeholder="one per line: group/project or group/project@branch"></sdpi-textarea>
+	<sdpi-item label="Projects" data-show="dial:projects">
+		<sdpi-textarea setting="dialList" rows="5" placeholder="one per line, e.g.&#10;group/project&#10;group/other@develop&#10;&#10;(@branch is optional; default branch otherwise)"></sdpi-textarea>
 	</sdpi-item>
 
+	<h3 class="heading">Actions</h3>
+	<sdpi-item label="Retry">
+		<sdpi-checkbox setting="allowRetry" default="true" label="Tap / push retries a failed pipeline"></sdpi-checkbox>
+	</sdpi-item>
+	<sdpi-item label="Cancel">
+		<sdpi-checkbox setting="allowCancel" default="true" label="Hold cancels a running pipeline"></sdpi-checkbox>
+	</sdpi-item>
 	<sdpi-item label="Refresh">
 		<sdpi-select setting="pollSeconds" default="60" value-type="number">
 			<option value="15">15 seconds</option>
@@ -48,7 +55,7 @@
 		</sdpi-select>
 	</sdpi-item>
 
-	<sdpi-heading>GitLab account (all keys)</sdpi-heading>
+	<h3 class="heading">GitLab account (all keys)</h3>
 	<sdpi-item label="GitLab URL">
 		<sdpi-textfield setting="gitlabUrl" global placeholder="https://gitlab.com"></sdpi-textfield>
 	</sdpi-item>
@@ -65,6 +72,33 @@
 			<sdpi-password setting="token" placeholder="use account setting"></sdpi-password>
 		</sdpi-item>
 	</details>
+
+	<script>
+		// Show only the fields that apply: keys watch one project/branch; dials turn through a list whose meaning
+		// depends on the dial mode. Elements list where they apply in data-show, e.g. "key dial:branches".
+		const { streamDeckClient } = SDPIComponents;
+		let controller = "Keypad";
+		let mode = "branches";
+
+		function update() {
+			const context = controller === "Encoder" ? ["dial", `dial:${mode}`] : ["key"];
+			for (const el of document.querySelectorAll("[data-show]")) {
+				el.hidden = !el.dataset.show.split(" ").some((place) => context.includes(place));
+			}
+		}
+
+		update();
+		streamDeckClient.getConnectionInfo().then(({ actionInfo }) => {
+			controller = actionInfo.payload.controller;
+			mode = actionInfo.payload.settings.dialMode || "branches";
+			update();
+		});
+		// sdpi-components fires "valuechange" when the user picks an option.
+		document.getElementById("dialMode").addEventListener("valuechange", (ev) => {
+			mode = ev.target.value || "branches";
+			update();
+		});
+	</script>
 </body>
 
 </html>

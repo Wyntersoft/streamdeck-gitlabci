@@ -2,7 +2,7 @@ import streamDeck, { action } from "@elgato/streamdeck";
 
 import { resolveConnection } from "../connection";
 import { cancelPipeline, type Connection, fetchLatestPipeline, isActive, isRetryable, listBranches, type Pipeline, retryPipeline } from "../gitlab";
-import { needsBranchList, step, type Target, type TargetSettings, targets } from "../targets";
+import { dialTargets, keyTarget, needsBranchList, step, type Target, type TargetSettings } from "../targets";
 import { errorLabel, type PollResult, type PollSettings, PollingAction, type Watch } from "./polling-action";
 
 /** Per-action settings, edited in the property inspector. */
@@ -36,17 +36,18 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 	}
 
 	protected override label(watch: Watch<BranchSettings, BranchData>, target = this.#current(watch)): string {
-		// A custom label names the configured project/ref, not the other entries a dial turns to.
-		const isPrimary = !watch.action.isDial() || (watch.settings.dialIndex ?? 0) === 0;
-		return (isPrimary && watch.settings.label?.trim()) || target?.project.split("/").pop() || "GitLab CI";
+		// Dials turn through several targets, so they always show the project name.
+		const custom = watch.action.isDial() ? undefined : watch.settings.label?.trim();
+		return custom || target?.project.split("/").pop() || "GitLab CI";
 	}
 
 	protected override async poll(watch: Watch<BranchSettings, BranchData>): Promise<PollResult<BranchData>> {
-		if (!watch.settings.project?.trim()) return { view: { kind: "setup", title: "Branch" } };
-
 		const isDial = watch.action.isDial();
-		const list = isDial ? targets(watch.settings, await this.#recentBranches(watch)) : targets(watch.settings).slice(0, 1);
-		const index = isDial ? step(watch.settings.dialIndex ?? 0, 0, list.length) : 0;
+		const single = keyTarget(watch.settings);
+		const list = isDial ? dialTargets(watch.settings, await this.#recentBranches(watch)) : single ? [single] : [];
+		if (list.length === 0) return { view: { kind: "setup", title: "Branch" } };
+
+		const index = step(watch.settings.dialIndex ?? 0, 0, list.length);
 		const target = list[index];
 		const position = list.length > 1 ? `${index + 1}/${list.length}` : undefined;
 
@@ -62,7 +63,7 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 	}
 
 	protected override async rotate(watch: Watch<BranchSettings, BranchData>, ticks: number): Promise<boolean> {
-		const length = targets(watch.settings, this.#branchLists.get(watch.action.id)?.names).length;
+		const length = dialTargets(watch.settings, this.#branchLists.get(watch.action.id)?.names).length;
 		if (length < 2) return false;
 		watch.settings.dialIndex = step(watch.settings.dialIndex ?? 0, ticks, length);
 		await this.saveSettings(watch);
@@ -83,8 +84,8 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 
 	/** The target currently selected, without fetching anything. */
 	#current(watch: Watch<BranchSettings, BranchData>): Target | undefined {
-		if (!watch.action.isDial()) return targets(watch.settings)[0];
-		const list = targets(watch.settings, this.#branchLists.get(watch.action.id)?.names);
+		if (!watch.action.isDial()) return keyTarget(watch.settings);
+		const list = dialTargets(watch.settings, this.#branchLists.get(watch.action.id)?.names);
 		return list[step(watch.settings.dialIndex ?? 0, 0, list.length)];
 	}
 
@@ -93,10 +94,10 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 		const cached = this.#branchLists.get(watch.action.id);
 		if (cached && Date.now() - cached.fetchedAt < BRANCH_LIST_TTL_MS) return cached.names;
 
-		const [primary] = targets(watch.settings);
+		const [primary] = dialTargets(watch.settings);
 		try {
 			const conn = await resolveConnection(watch.settings, primary.baseUrl);
-			const names = (await listBranches(conn, primary.project)).filter((b) => !b.isDefault && b.name !== primary.ref).map((b) => b.name);
+			const names = (await listBranches(conn, primary.project)).filter((b) => !b.isDefault).map((b) => b.name);
 			this.#branchLists.set(watch.action.id, { names, fetchedAt: Date.now() });
 			return names;
 		} catch (err) {
