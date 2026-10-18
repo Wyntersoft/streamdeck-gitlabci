@@ -1,9 +1,37 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { fetchLatestPipeline, GitLabError, normalizeBaseUrl, parseProject } from "../src/gitlab.ts";
+import {
+	cancelPipeline,
+	fetchLatestPipeline,
+	fetchRunnerFleet,
+	fetchRunnerJobs,
+	type FetchFn,
+	GitLabError,
+	normalizeBaseUrl,
+	parseProject,
+	retryPipeline,
+} from "../src/gitlab.ts";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const conn = { baseUrl: "https://gl.test", token: "tok" };
+const pipelineBody = { id: 7, status: "running", ref: "main", sha: "abc", web_url: "https://gl.test/g/p/-/pipelines/7", started_at: "2026-01-01T00:00:00Z", finished_at: null };
+
+type Call = { method: string; url: string; init?: RequestInit };
+
+/** Records requests and answers from a route table keyed by "METHOD path". */
+function fake(routes: Record<string, () => Response>): FetchFn & { calls: Call[] } {
+	const calls: Call[] = [];
+	const fn = async (url: string, init?: RequestInit) => {
+		const method = init?.method ?? "GET";
+		calls.push({ method, url, init });
+		const route = routes[`${method} ${url.replace("https://gl.test/api/", "")}`];
+		return route ? route() : json(500, { message: `unexpected ${method} ${url}` });
+	};
+	return Object.assign(fn, { calls });
+}
+
+const header = (call: Call, name: string) => (call.init?.headers as Record<string, string>)[name];
 
 test("normalizeBaseUrl", () => {
 	assert.equal(normalizeBaseUrl(undefined), "https://gitlab.com");
@@ -22,41 +50,83 @@ test("parseProject accepts paths and URLs", () => {
 });
 
 test("fetchLatestPipeline builds the request and maps the response", async () => {
-	let seen: { url: string; init?: RequestInit } | undefined;
-	const pipeline = await fetchLatestPipeline({ baseUrl: "https://gl.test", token: "tok", project: "g/p", ref: "main" }, async (url, init) => {
-		seen = { url, init };
-		return json(200, { id: 7, status: "running", ref: "main", sha: "abc", web_url: "https://gl.test/g/p/-/pipelines/7", started_at: "2026-01-01T00:00:00Z", finished_at: null });
-	});
-	assert.equal(seen?.url, "https://gl.test/api/v4/projects/g%2Fp/pipelines/latest?ref=main");
-	assert.equal((seen?.init?.headers as Record<string, string>)["PRIVATE-TOKEN"], "tok");
+	const f = fake({ "GET v4/projects/g%2Fp/pipelines/latest?ref=main": () => json(200, pipelineBody) });
+	const pipeline = await fetchLatestPipeline(conn, "g/p", "main", f);
+	assert.equal(header(f.calls[0], "PRIVATE-TOKEN"), "tok");
 	assert.equal(pipeline.status, "running");
-	assert.equal(pipeline.webUrl, "https://gl.test/g/p/-/pipelines/7");
+	assert.equal(pipeline.warnings, false);
 	assert.equal(pipeline.finishedAt, undefined);
 });
 
-test("fetchLatestPipeline omits ref and token when not given", async () => {
-	await fetchLatestPipeline({ baseUrl: "https://gl.test", project: "5" }, async (url, init) => {
-		assert.equal(url, "https://gl.test/api/v4/projects/5/pipelines/latest");
-		assert.equal((init?.headers as Record<string, string>)["PRIVATE-TOKEN"], undefined);
-		return json(200, { id: 1, status: "success", ref: "main", sha: "x", web_url: "u" });
+test("fetchLatestPipeline detects success with warnings", async () => {
+	const f = fake({
+		"GET v4/projects/5/pipelines/latest": () => json(200, { ...pipelineBody, status: "success", detailed_status: { group: "success-with-warnings" } }),
 	});
+	const pipeline = await fetchLatestPipeline({ baseUrl: "https://gl.test" }, "5", undefined, f);
+	assert.equal(pipeline.warnings, true);
+	assert.equal(header(f.calls[0], "PRIVATE-TOKEN"), undefined);
 });
 
 test("fetchLatestPipeline classifies errors", async () => {
-	const kind = (status: number, message: string, error?: string) =>
-		fetchLatestPipeline({ baseUrl: "https://gl.test", project: "p" }, async () => json(status, error ? { error } : { message })).then(
+	const kind = (status: number, body: object) =>
+		fetchLatestPipeline(conn, "p", undefined, async () => json(status, body)).then(
 			() => assert.fail("expected rejection"),
 			(err: GitLabError) => err.kind,
 		);
-	assert.equal(await kind(401, "401 Unauthorized"), "auth");
-	assert.equal(await kind(403, "", "insufficient_scope"), "auth");
-	assert.equal(await kind(403, "403 Forbidden"), "no-pipeline");
-	assert.equal(await kind(404, "404 Project Not Found"), "not-found");
-	assert.equal(await kind(404, "404 Not found"), "no-pipeline");
-	assert.equal(await kind(500, "boom"), "http");
+	assert.equal(await kind(401, { message: "401 Unauthorized" }), "auth");
+	assert.equal(await kind(403, { error: "insufficient_scope" }), "auth");
+	assert.equal(await kind(403, { message: "403 Forbidden" }), "no-pipeline");
+	assert.equal(await kind(404, { message: "404 Project Not Found" }), "not-found");
+	assert.equal(await kind(404, { message: "404 Not found" }), "no-pipeline");
+	assert.equal(await kind(500, { message: "boom" }), "http");
 
-	const network = await fetchLatestPipeline({ baseUrl: "https://gl.test", project: "p" }, async () => {
+	const network = await fetchLatestPipeline(conn, "p", undefined, async () => {
 		throw new TypeError("fetch failed");
 	}).catch((err: GitLabError) => err.kind);
 	assert.equal(network, "network");
+});
+
+test("retry and cancel POST to the pipeline", async () => {
+	const f = fake({
+		"POST v4/projects/g%2Fp/pipelines/7/retry": () => json(201, { ...pipelineBody, status: "pending" }),
+		"POST v4/projects/g%2Fp/pipelines/7/cancel": () => json(200, { ...pipelineBody, status: "canceled" }),
+	});
+	assert.equal((await retryPipeline(conn, "g/p", 7, f)).status, "pending");
+	assert.equal((await cancelPipeline(conn, "g/p", 7, f)).status, "canceled");
+	assert.deepEqual(
+		f.calls.map((c) => c.method),
+		["POST", "POST"],
+	);
+});
+
+test("fetchRunnerJobs maps running jobs", async () => {
+	const f = fake({
+		"GET v4/runners/9/jobs?status=running&order_by=id&sort=desc": () =>
+			json(200, [{ id: 1, name: "build", stage: "build", ref: "main", project: { name: "api" }, started_at: "2026-01-01T00:00:00Z", web_url: "u" }]),
+	});
+	assert.deepEqual(await fetchRunnerJobs(conn, "9", f), [
+		{ id: 1, name: "build", stage: "build", ref: "main", project: "api", startedAt: "2026-01-01T00:00:00Z", webUrl: "u" },
+	]);
+});
+
+test("fetchRunnerFleet counts runners and queue", async () => {
+	const runners = [
+		{ id: 1, description: "a", status: "online", paused: false, job_execution_status: "active", runner_type: "instance_type" },
+		{ id: 2, description: "b", status: "online", paused: false, job_execution_status: "idle", runner_type: "instance_type" },
+		{ id: 3, description: "c", status: "online", paused: true, job_execution_status: "idle", runner_type: "instance_type" },
+		{ id: 4, description: "d", status: "offline", paused: false, job_execution_status: "idle", runner_type: "project_type" },
+	];
+	const admin = fake({
+		"GET v4/runners/all?per_page=100": () => json(200, runners),
+		"POST graphql": () => json(200, { data: { jobs: { count: 3 } } }),
+	});
+	assert.deepEqual(await fetchRunnerFleet(conn, admin), { total: 4, online: 2, busy: 1, queued: 3 });
+
+	// Non-admins can't list all runners or count instance-wide jobs.
+	const user = fake({
+		"GET v4/runners/all?per_page=100": () => json(403, { message: "403 Forbidden" }),
+		"GET v4/runners?per_page=100": () => json(200, runners.slice(0, 1)),
+		"POST graphql": () => json(200, { data: { jobs: null }, errors: [{ message: "denied" }] }),
+	});
+	assert.deepEqual(await fetchRunnerFleet(conn, user), { total: 1, online: 1, busy: 1, queued: undefined });
 });

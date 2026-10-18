@@ -1,14 +1,18 @@
 import streamDeck from "@elgato/streamdeck";
 
-import { PipelineStatusAction } from "./actions/pipeline-status";
+import { BranchStatusAction } from "./actions/branch-status";
+import { RunnerHealthAction } from "./actions/runner-health";
+import { RunnerStatusAction } from "./actions/runner-status";
 import { watchGlobalSettings } from "./global-settings";
 
 // Tokens pass through settings messages, so keep logging above "trace" to avoid writing them to disk.
 streamDeck.logger.setLevel("info");
 
-const pipelineStatus = new PipelineStatusAction();
-streamDeck.actions.registerAction(pipelineStatus);
-watchGlobalSettings(() => pipelineStatus.refreshAll());
-streamDeck.system.onSystemDidWakeUp(() => pipelineStatus.refreshAll());
+const actions = [new BranchStatusAction(), new RunnerStatusAction(), new RunnerHealthAction()];
+for (const action of actions) streamDeck.actions.registerAction(action);
+
+const refreshAll = () => actions.forEach((action) => action.refreshAll());
+watchGlobalSettings(refreshAll);
+streamDeck.system.onSystemDidWakeUp(refreshAll);
 
 streamDeck.connect();

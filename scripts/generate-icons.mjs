@@ -28,20 +28,32 @@ const branded = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
 	${pipelineGlyph("#FFFFFF")}
 </svg>`;
 
-const key = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-	<rect width="144" height="144" fill="#2B2B2B"/>
-	${pipelineGlyph("#FFFFFF")}
-</svg>`;
+// Action list icons: white, single colour, transparent (Elgato guidelines).
+const mono = (body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">${body}</svg>`;
+const actionIcons = {
+	// A branch: trunk with a fork.
+	branch: mono(`<g fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round">
+		<path d="M44 24 V120"/><path d="M100 44 C100 80 44 72 44 100"/></g>
+		<circle cx="44" cy="24" r="14" fill="#FFFFFF"/><circle cx="44" cy="120" r="14" fill="#FFFFFF"/><circle cx="100" cy="40" r="14" fill="#FFFFFF"/>`),
+	// A runner: a server box with a play triangle.
+	runner: mono(`<rect x="18" y="30" width="108" height="84" rx="14" fill="none" stroke="#FFFFFF" stroke-width="12"/>
+		<path d="M60 52 L92 72 L60 92 Z" fill="#FFFFFF"/>`),
+	// Health: three bars.
+	health: mono(`<g fill="#FFFFFF"><rect x="20" y="70" width="26" height="50" rx="5"/><rect x="59" y="44" width="26" height="76" rx="5"/><rect x="98" y="22" width="26" height="98" rx="5"/></g>`),
+};
+const keyFor = (icon) => icon.replace('viewBox="0 0 144 144">', 'viewBox="-36 -36 216 216"><rect x="-36" y="-36" width="216" height="216" fill="#2B2B2B"/>');
 
 const assets = [
 	{ file: "plugin/marketplace", svg: branded, size: 256 },
 	{ file: "plugin/marketplace@2x", svg: branded, size: 512 },
 	{ file: "plugin/category-icon", svg: monochrome, size: 28 },
 	{ file: "plugin/category-icon@2x", svg: monochrome, size: 56 },
-	{ file: "actions/pipeline/icon", svg: monochrome, size: 20 },
-	{ file: "actions/pipeline/icon@2x", svg: monochrome, size: 40 },
-	{ file: "actions/pipeline/key", svg: key, size: 72 },
-	{ file: "actions/pipeline/key@2x", svg: key, size: 144 },
+	...Object.entries(actionIcons).flatMap(([name, svg]) => [
+		{ file: `actions/${name}/icon`, svg, size: 20 },
+		{ file: `actions/${name}/icon@2x`, svg, size: 40 },
+		{ file: `actions/${name}/key`, svg: keyFor(svg), size: 72 },
+		{ file: `actions/${name}/key@2x`, svg: keyFor(svg), size: 144 },
+	]),
 ];
 
 for (const { file, svg, size } of assets) {

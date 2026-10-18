@@ -2,21 +2,18 @@
 <html>
 
 <head lang="en">
-	<title>GitLab CI Pipeline Settings</title>
+	<title>Runner Status Settings</title>
 	<meta charset="utf-8" />
 	<script src="sdpi-components.js"></script>
 </head>
 
 <body>
-	<sdpi-heading>Pipeline</sdpi-heading>
-	<sdpi-item label="Project">
-		<sdpi-textfield setting="project" placeholder="group/project or URL" required></sdpi-textfield>
-	</sdpi-item>
-	<sdpi-item label="Branch / tag">
-		<sdpi-textfield setting="ref" placeholder="default branch"></sdpi-textfield>
+	<sdpi-heading>Runner</sdpi-heading>
+	<sdpi-item label="Runner">
+		<sdpi-select setting="runnerId" datasource="getRunners" show-refresh placeholder="Select a runner"></sdpi-select>
 	</sdpi-item>
 	<sdpi-item label="Label">
-		<sdpi-textfield setting="label" placeholder="project name"></sdpi-textfield>
+		<sdpi-textfield setting="label" placeholder="runner description"></sdpi-textfield>
 	</sdpi-item>
 	<sdpi-item label="Refresh">
 		<sdpi-select setting="pollSeconds" default="60" value-type="number">

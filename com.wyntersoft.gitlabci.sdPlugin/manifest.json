@@ -3,7 +3,7 @@
 	"Name": "GitLab CI",
 	"Version": "0.1.0.0",
 	"Author": "Wyntersoft",
-	"Description": "Watch GitLab CI pipelines from your Stream Deck. Each key shows the live status of the latest pipeline for a project and branch; press to open it in your browser.",
+	"Description": "Watch GitLab CI from your Stream Deck. Branch keys show the latest pipeline's status (tap to retry a failed build, hold to cancel a running one); runner keys show what a runner is building; a health key summarises runners online, building and queued jobs.",
 	"Category": "GitLab CI",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"Icon": "imgs/plugin/marketplace",
@@ -30,18 +30,54 @@
 	"UUID": "com.wyntersoft.gitlabci",
 	"Actions": [
 		{
-			"Name": "Pipeline Status",
-			"UUID": "com.wyntersoft.gitlabci.pipeline",
-			"Icon": "imgs/actions/pipeline/icon",
-			"Tooltip": "Shows the status of the latest pipeline for a GitLab project. Press to open it.",
-			"PropertyInspectorPath": "ui/pipeline.html",
+			"Name": "Branch Status",
+			"UUID": "com.wyntersoft.gitlabci.branch",
+			"Icon": "imgs/actions/branch/icon",
+			"Tooltip": "Latest pipeline for a branch. Tap retries a failed pipeline; hold cancels a running one.",
+			"PropertyInspectorPath": "ui/branch.html",
 			"SupportedInMultiActions": false,
 			"Controllers": [
 				"Keypad"
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/pipeline/key",
+					"Image": "imgs/actions/branch/key",
+					"ShowTitle": true,
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Runner Status",
+			"UUID": "com.wyntersoft.gitlabci.runner",
+			"Icon": "imgs/actions/runner/icon",
+			"Tooltip": "Shows whether a runner is idle or what it's building.",
+			"PropertyInspectorPath": "ui/runner.html",
+			"SupportedInMultiActions": false,
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/runner/key",
+					"ShowTitle": true,
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Runner Health",
+			"UUID": "com.wyntersoft.gitlabci.health",
+			"Icon": "imgs/actions/health/icon",
+			"Tooltip": "Runners online, runners building, and jobs waiting for a runner.",
+			"PropertyInspectorPath": "ui/health.html",
+			"SupportedInMultiActions": false,
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/health/key",
 					"ShowTitle": true,
 					"TitleAlignment": "middle"
 				}

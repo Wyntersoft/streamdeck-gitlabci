@@ -1,37 +1,50 @@
 # streamdeck-gitlabci
 
-A Stream Deck plugin that turns keys into live GitLab CI status indicators.
+A Stream Deck plugin for watching GitLab CI. Works with gitlab.com and self-hosted GitLab.
 
-Each key watches a GitLab project (and optionally a branch/ref) and shows the
-status of its latest pipeline — passed, failed, running, pending, canceled —
-with a colour-coded icon. Pressing the key opens the pipeline in your browser.
+## Actions
 
-Works with gitlab.com and self-hosted GitLab instances.
+### Branch Status
+Shows the latest pipeline for a project's branch (default branch if none is given):
 
-## Features
+| Colour | Meaning |
+| --- | --- |
+| Green | Passed |
+| Yellow | Passed with warnings (an `allow_failure` job failed) |
+| Red | Failed |
+| Cyan | Building (running or queued) |
+| Grey | Canceled, skipped, manual or scheduled |
 
-- Per-key configuration: GitLab URL, access token, project path, ref
-- Polls the GitLab API on a configurable interval
-- Status icons for success / failed / running / pending / canceled / skipped / unknown
-- Press to open the latest pipeline in the browser
+- **Tap** retries a failed or canceled pipeline.
+- **Hold** (0.6 s) cancels a running pipeline.
+
+Both can be turned off with the checkboxes in the key's settings. They need a token with `api` scope;
+with a `read_api` token the key is view-only.
+
+### Runner Status
+Pick a runner from the dropdown. The key shows **Idle**, **Paused**, **Offline/Stale**, or, while busy,
+the project, ref and job it's running (with elapsed time). Key presses do nothing.
+
+### Runner Health
+Summarises every runner the token can see: runners online, runners building, and jobs queued
+waiting for a runner. Red when no runner is online, yellow when jobs are queued, cyan while building,
+green when idle. Queue depth needs an administrator token (shows `?` otherwise). Key presses do nothing.
 
 ## Requirements
 
 - Stream Deck 7.1+
-- A GitLab personal or project access token with `read_api` scope (not needed for public projects)
+- A GitLab personal access token: `read_api` to view, `api` to retry/cancel. Runner keys need
+  access to the runners (administrator for instance runners).
 
-## Usage
+## Setup
 
-1. Drag **GitLab CI → Pipeline Status** onto a key.
-2. In the property inspector set:
-   - **Project**: `group/project`, a numeric project ID, or just paste the project URL from your browser.
-   - **Branch / tag**: optional; defaults to the project's default branch.
-   - **GitLab URL** and **Access token**: shared by all keys. You can override both per key, e.g. to
-     mix gitlab.com and a self-hosted instance.
-3. The key shows the project, the pipeline status, the ref, and how long ago it finished (or how long
-   it's been running). Press it to open the pipeline in your browser.
+Set **GitLab URL** and **Access token** once in any key's settings; they're shared by all keys.
+Each key can override both, e.g. to mix gitlab.com and a self-hosted instance. Branch keys also
+accept a pasted project URL.
 
-Keys poll every minute by default and every 10 seconds while a pipeline is in progress.
+Keys poll every minute by default and every 10 seconds while something is building. GitLab has no
+public push API that suits a desktop plugin (webhooks need a reachable endpoint; its GraphQL
+subscriptions are per-job and meant for the web UI), so the plugin polls.
 
 ## Development
 
@@ -49,9 +62,12 @@ npm run icons      # regenerate the PNG icons in imgs/
 
 | Path | Purpose |
 | --- | --- |
-| `src/gitlab.ts` | GitLab REST client (`/projects/:id/pipelines/latest`) |
+| `src/gitlab.ts` | GitLab REST/GraphQL client |
 | `src/render.ts` | Renders key images as SVG |
-| `src/actions/pipeline-status.ts` | The key action: polling, rendering, key press |
+| `src/actions/polling-action.ts` | Shared polling, timers and animation |
+| `src/actions/branch-status.ts` | Branch key: status, tap to retry, hold to cancel |
+| `src/actions/runner-status.ts` | Runner key and its runner dropdown |
+| `src/actions/runner-health.ts` | Runner health key |
 | `com.wyntersoft.gitlabci.sdPlugin/` | Manifest, property inspector, images |
 
 CI runs the tests and attaches the packaged `.streamDeckPlugin` to each pipeline.

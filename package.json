@@ -13,7 +13,8 @@
 		"icons": "node scripts/generate-icons.mjs"
 	},
 	"dependencies": {
-		"@elgato/streamdeck": "^3.0.2"
+		"@elgato/streamdeck": "^3.0.2",
+		"@elgato/utils": "^0.6.1"
 	},
 	"devDependencies": {
 		"@elgato/cli": "^1.10.2",
