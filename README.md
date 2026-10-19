@@ -19,6 +19,8 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 - **Tap** retries a failed, canceled, or passed-with-warnings pipeline (reruns its failed jobs).
 - **Hold** (0.6 s) cancels a running pipeline.
 
+A press shows **Retrying…** / **Canceling…** straight away; if there is nothing to do it says so (e.g. **No failed jobs**, **Not running**). After a retry or cancel, runner keys refresh about 5 seconds later so they pick up the jobs.
+
 On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** on the strip do the same.
 **Turning** the dial switches what it shows. Its settings only show the fields for the chosen mode:
 
@@ -83,7 +85,9 @@ Set **GitLab URL** and **Access token** once in any key's settings; they're shar
 Each key can override both, e.g. to mix gitlab.com and a self-hosted instance. Branch keys also
 accept a pasted project URL.
 
-Keys poll every minute by default and every 10 seconds while something is building. GitLab has no
+Keys poll every minute by default and every 10 seconds while something is building. Runner Status keys and
+Runner Health share one runner snapshot (a single GraphQL query for administrators), so they always
+update together and agree with each other. GitLab has no
 public push API that suits a desktop plugin (webhooks need a reachable endpoint; its GraphQL
 subscriptions are per-job and meant for the web UI), so the plugin polls.
 
@@ -109,6 +113,7 @@ npm run icons      # regenerate the PNG icons in imgs/
 | `src/actions/polling-action.ts` | Shared polling, animation, tap/hold and dial rotation |
 | `src/actions/branch-status.ts` | Branch key: status, tap to retry, hold to cancel |
 | `src/actions/runner-status.ts` | Runner key and its runner dropdown |
+| `src/runner-hub.ts` | Shared runner snapshot that keeps all runner keys in step |
 | `src/actions/runner-health.ts` | Runner health key; on dials, overview plus each runner |
 | `com.wyntersoft.gitlabci.sdPlugin/` | Manifest, property inspector, images |
 

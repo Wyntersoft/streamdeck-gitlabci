@@ -5,6 +5,7 @@ import {
 	cancelPipeline,
 	fetchLatestPipeline,
 	fetchRunnerFleet,
+	fetchRunnerSnapshot,
 	fetchRunnerJobs,
 	type FetchFn,
 	GitLabError,
@@ -148,4 +149,72 @@ test("isRetryable covers failed, canceled and passed with warnings", () => {
 	assert.equal(isRetryable(p("success", true)), true);
 	assert.equal(isRetryable(p("success")), false);
 	assert.equal(isRetryable(p("running")), false);
+});
+
+test("fetchRunnerSnapshot reads everything from one GraphQL query", async () => {
+	const f = fake({
+		"POST graphql": () =>
+			json(200, {
+				data: {
+					runners: {
+						nodes: [
+							{ id: "gid://gitlab/Ci::Runner/9", description: "zeta", status: "ONLINE", paused: false, jobExecutionStatus: "ACTIVE", runnerType: "INSTANCE_TYPE" },
+							{ id: "gid://gitlab/Ci::Runner/8", description: "", status: "OFFLINE", paused: false, jobExecutionStatus: "IDLE", runnerType: "PROJECT_TYPE" },
+						],
+					},
+					running: {
+						nodes: [
+							{
+								id: "gid://gitlab/Ci::Build/5",
+								name: "compile",
+								refName: "main",
+								startedAt: "2026-01-01T00:00:00Z",
+								webPath: "/g/p/-/jobs/5",
+								stage: { name: "build" },
+								runner: { id: "gid://gitlab/Ci::Runner/9" },
+								project: { name: "api" },
+							},
+						],
+					},
+					pending: { count: 2 },
+				},
+			}),
+	});
+	const snapshot = await fetchRunnerSnapshot(conn, f);
+	assert.equal(f.calls.length, 1);
+	assert.deepEqual(
+		snapshot.runners.map((r) => [r.id, r.name, r.status, r.busy, r.type]),
+		[
+			[8, "Runner #8", "offline", false, "project_type"],
+			[9, "zeta", "online", true, "instance_type"],
+		],
+	);
+	assert.deepEqual(snapshot.jobs[9], [
+		{ id: 5, name: "compile", stage: "build", ref: "main", project: "api", startedAt: "2026-01-01T00:00:00Z", webUrl: "https://gl.test/g/p/-/jobs/5" },
+	]);
+	assert.equal(snapshot.queued, 2);
+});
+
+test("fetchRunnerSnapshot falls back to REST for non-admin tokens", async () => {
+	const f = fake({
+		"POST graphql": () => json(200, { data: { runners: null, running: null, pending: null }, errors: [{ message: "denied" }] }),
+		"GET v4/runners/all?per_page=100": () => json(403, { message: "403 Forbidden" }),
+		"GET v4/runners?per_page=100": () =>
+			json(200, [
+				{ id: 1, description: "busy", status: "online", paused: false, job_execution_status: "active", runner_type: "project_type" },
+				{ id: 2, description: "idle", status: "online", paused: false, job_execution_status: "idle", runner_type: "project_type" },
+			]),
+		"GET v4/runners/1/jobs?status=running&order_by=id&sort=desc": () =>
+			json(200, [{ id: 3, name: "test", stage: "test", ref: "dev", project: { name: "web" }, started_at: null, web_url: "u" }]),
+	});
+	const snapshot = await fetchRunnerSnapshot(conn, f);
+	assert.deepEqual(
+		snapshot.runners.map((r) => r.id),
+		[1, 2],
+	);
+	assert.equal(snapshot.jobs[1][0].project, "web");
+	assert.equal(snapshot.jobs[2], undefined);
+	assert.equal(snapshot.queued, undefined);
+	// No per-runner request for the idle runner.
+	assert.equal(f.calls.filter((c) => c.url.includes("/runners/2/jobs")).length, 0);
 });

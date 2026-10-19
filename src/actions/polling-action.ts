@@ -145,6 +145,11 @@ export abstract class PollingAction<TSettings extends PollSettings, TData> exten
 		}
 	}
 
+	/** Redraws every visible action from fresh data without a loading flash, e.g. when a shared snapshot changes. */
+	resync(): void {
+		for (const watch of this.watches.values()) void this.refresh(watch);
+	}
+
 	protected async refresh(watch: Watch<TSettings, TData>): Promise<void> {
 		this.#stop(watch);
 		const generation = ++watch.generation;

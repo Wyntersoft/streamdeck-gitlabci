@@ -75,6 +75,8 @@ test("rendered SVG elements never repeat an attribute", () => {
 		{ kind: "setup", title: "p" },
 		{ kind: "loading", label: "p" },
 		{ kind: "error", label: "p", message: "m" },
+		{ kind: "working", label: "p", message: "Retrying…", frame: 3 },
+		{ kind: "notice", label: "p", message: "No failed jobs" },
 		{ kind: "runner", label: "p", runner, jobs: [] },
 		{ kind: "runner", label: "p", runner: { ...runner, paused: true }, jobs: [] },
 		{ kind: "health", label: "p", fleet: { total: 3, online: 2, busy: 1, queued: 0 } },

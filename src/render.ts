@@ -7,11 +7,15 @@ export type KeyView =
 	| { kind: "setup"; title: string }
 	| { kind: "loading"; label: string }
 	| { kind: "error"; label: string; message: string }
+	/** Shown the moment a press starts a request, until GitLab answers. */
+	| { kind: "working"; label: string; message: string; frame?: number }
+	/** Brief feedback for a press that has nothing to do. */
+	| { kind: "notice"; label: string; message: string }
 	| { kind: "pipeline"; label: string; pipeline: Pipeline; frame?: number }
 	| { kind: "runner"; label: string; runner: Runner; jobs: RunnerJob[] }
 	| { kind: "health"; label: string; fleet: RunnerFleet };
 
-type Glyph = "check" | "warning" | "cross" | "spinner" | "clock" | "cancel" | "skip" | "play" | "pause" | "question" | "alert" | "gear" | "idle";
+type Glyph = "check" | "warning" | "cross" | "spinner" | "clock" | "cancel" | "skip" | "play" | "pause" | "question" | "alert" | "gear" | "idle" | "info";
 
 type Colors = { background: string; foreground: string };
 type Style = Colors & { glyph: Glyph };
@@ -62,6 +66,10 @@ function card(view: KeyView, now: Date): Card {
 	switch (view.kind) {
 		case "setup":
 			return glyph(DARK, view.title, "gear", "Configure");
+		case "working":
+			return glyph(CYAN, view.label, "spinner", view.message, view.frame);
+		case "notice":
+			return glyph(DARK, view.label, "info", view.message);
 		case "loading":
 			return glyph(DARK, view.label, "spinner", "Loading…");
 		case "error":
@@ -240,6 +248,8 @@ function drawGlyph(glyph: Glyph, color: string, frame = 0): string {
 			return `${ring}<path d="M64 60 L88 74 L64 88 Z" fill="${color}"/>`;
 		case "pause":
 			return `${ring}<path d="M63 60 L63 88 M81 60 L81 88" ${line(8)}/>`;
+		case "info":
+			return `${ring}<circle cx="72" cy="60" r="4.5" fill="${color}"/><path d="M72 72 L72 90" ${line(8)}/>`;
 		case "idle":
 			return `<circle cx="72" cy="74" r="30" ${line(7, 0.45)}/><path d="M58 74 L86 74" ${line(7, 0.45)}/>`;
 		case "gear":

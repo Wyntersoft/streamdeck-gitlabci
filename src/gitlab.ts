@@ -280,3 +280,76 @@ export async function listBranches(conn: Connection, projectId: string, limit = 
 	const branches = await request<{ name: string; default?: boolean }[]>(conn, "GET", `${project(projectId)}/repository/branches?per_page=${limit}&sort=updated_desc`, fetchFn);
 	return branches.map((b) => ({ name: b.name, isDefault: !!b.default }));
 }
+
+/** Every visible runner with what it's running, taken at one moment so all runner keys agree. */
+export type RunnerSnapshot = {
+	/** Sorted by name, then ID. */
+	runners: Runner[];
+	/** Running jobs by runner ID; runners missing here are idle. */
+	jobs: Record<number, RunnerJob[]>;
+	/** Jobs waiting for a runner; undefined unless the token belongs to an administrator. */
+	queued?: number;
+};
+
+const SNAPSHOT_QUERY = `{
+	runners(first: 100) { nodes { id description status paused jobExecutionStatus runnerType } }
+	running: jobs(statuses: [RUNNING], first: 100) {
+		nodes { id name refName startedAt webPath stage { name } runner { id } project { name } }
+	}
+	pending: jobs(statuses: [PENDING]) { count }
+}`;
+
+type SnapshotResponse = {
+	data?: {
+		runners?: { nodes: Record<string, unknown>[] } | null;
+		running?: { nodes: Record<string, unknown>[] } | null;
+		pending?: { count?: number } | null;
+	};
+};
+
+/** Numeric ID from a GraphQL global ID such as `gid://gitlab/Ci::Runner/9`. */
+const gidNumber = (gid: unknown) => Number(String(gid).split("/").pop());
+
+/**
+ * Fetches runners, their running jobs and the queue depth. Administrators get all of it from a single GraphQL query;
+ * other tokens fall back to REST (runner list plus one jobs request per busy runner).
+ */
+export async function fetchRunnerSnapshot(conn: Connection, fetchFn: FetchFn = fetch): Promise<RunnerSnapshot> {
+	const res = await request<SnapshotResponse>(conn, "POST", "graphql", fetchFn, { query: SNAPSHOT_QUERY }).catch(() => undefined);
+	const data = res?.data;
+	if (data?.runners && data.running) {
+		const jobs: Record<number, RunnerJob[]> = {};
+		for (const j of data.running.nodes) {
+			const runnerId = gidNumber((j.runner as { id?: string } | null)?.id);
+			if (!runnerId) continue;
+			(jobs[runnerId] ??= []).push({
+				id: gidNumber(j.id),
+				name: j.name as string,
+				stage: (j.stage as { name?: string } | null)?.name ?? "",
+				ref: j.refName as string,
+				project: (j.project as { name?: string } | null)?.name ?? "",
+				startedAt: (j.startedAt as string | null) ?? undefined,
+				webUrl: `${normalizeBaseUrl(conn.baseUrl)}${j.webPath as string}`,
+			});
+		}
+		const runners = data.runners.nodes.map((r) => {
+			const id = gidNumber(r.id);
+			return {
+				id,
+				name: (r.description as string | null)?.trim() || `Runner #${id}`,
+				status: String(r.status).toLowerCase(),
+				paused: !!r.paused,
+				busy: r.jobExecutionStatus === "ACTIVE" || !!jobs[id]?.length,
+				type: String(r.runnerType).toLowerCase(),
+			};
+		});
+		return { runners: sortRunners(runners), jobs, queued: data.pending?.count ?? undefined };
+	}
+
+	const [runners, queued] = await Promise.all([listRunners(conn, fetchFn), fetchQueuedJobs(conn, fetchFn)]);
+	const busy = runners.filter((r) => r.busy);
+	const jobLists = await Promise.all(busy.map((r) => fetchRunnerJobs(conn, String(r.id), fetchFn).catch(() => [])));
+	const jobs: Record<number, RunnerJob[]> = {};
+	busy.forEach((r, i) => (jobs[r.id] = jobLists[i]));
+	return { runners: sortRunners(runners), jobs, queued };
+}
