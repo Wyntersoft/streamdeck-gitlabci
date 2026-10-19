@@ -8,6 +8,7 @@ import {
 	fetchRunnerJobs,
 	type FetchFn,
 	GitLabError,
+	isRetryable,
 	normalizeBaseUrl,
 	parseProject,
 	retryPipeline,
@@ -138,4 +139,13 @@ test("sortRunners orders by name then ID", () => {
 		sortRunners([r(3, "b"), r(2, "a"), r(1, "b")]).map((x) => x.id),
 		[2, 1, 3],
 	);
+});
+
+test("isRetryable covers failed, canceled and passed with warnings", () => {
+	const p = (status: string, warnings = false) => ({ id: 1, status, warnings, ref: "main", sha: "x", webUrl: "u" }) as Parameters<typeof isRetryable>[0];
+	assert.equal(isRetryable(p("failed")), true);
+	assert.equal(isRetryable(p("canceled")), true);
+	assert.equal(isRetryable(p("success", true)), true);
+	assert.equal(isRetryable(p("success")), false);
+	assert.equal(isRetryable(p("running")), false);
 });

@@ -256,9 +256,12 @@ export function isActive(status: PipelineStatus): boolean {
 	return ["created", "waiting_for_resource", "preparing", "pending", "running", "canceling"].includes(status);
 }
 
-/** Statuses for which retrying the pipeline makes sense. */
-export function isRetryable(status: PipelineStatus): boolean {
-	return status === "failed" || status === "canceled";
+/**
+ * True when retrying makes sense: the pipeline failed, was canceled, or passed with warnings. GitLab's retry reruns the
+ * failed and canceled jobs, including ones allowed to fail.
+ */
+export function isRetryable(pipeline: Pipeline): boolean {
+	return pipeline.status === "failed" || pipeline.status === "canceled" || (pipeline.status === "success" && pipeline.warnings);
 }
 
 export type Branch = { name: string; isDefault: boolean };

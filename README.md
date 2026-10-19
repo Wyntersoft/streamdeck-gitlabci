@@ -16,7 +16,7 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 | Cyan | Building (running or queued) |
 | Grey | Canceled, skipped, manual or scheduled |
 
-- **Tap** retries a failed or canceled pipeline.
+- **Tap** retries a failed, canceled, or passed-with-warnings pipeline (reruns its failed jobs).
 - **Hold** (0.6 s) cancels a running pipeline.
 
 On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** on the strip do the same.

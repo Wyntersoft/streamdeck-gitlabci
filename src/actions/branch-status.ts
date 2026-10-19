@@ -8,7 +8,7 @@ import { errorLabel, type PollResult, type PollSettings, PollingAction, type Wat
 /** Per-action settings, edited in the property inspector. */
 export type BranchSettings = PollSettings &
 	TargetSettings & {
-		/** Tap retries a failed or canceled pipeline. Enabled unless explicitly turned off. */
+		/** Tap retries a failed, canceled or passed-with-warnings pipeline. Enabled unless explicitly turned off. */
 		allowRetry?: boolean;
 		/** Long press cancels a running pipeline. Enabled unless explicitly turned off. */
 		allowCancel?: boolean;
@@ -72,7 +72,7 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 
 	protected override async tap(watch: Watch<BranchSettings, BranchData>): Promise<void> {
 		const data = watch.data;
-		if (!data || watch.settings.allowRetry === false || !isRetryable(data.pipeline.status)) return;
+		if (!data || watch.settings.allowRetry === false || !isRetryable(data.pipeline)) return;
 		await this.#mutate(watch, "retry", () => retryPipeline(data.conn, data.project, data.pipeline.id));
 	}
 
