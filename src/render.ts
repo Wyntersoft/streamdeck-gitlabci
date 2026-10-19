@@ -194,6 +194,7 @@ function row(x: number, y: number, value: string, caption: string, color: string
 
 /** Elapsed time for running pipelines, time since completion otherwise. */
 export function timeLabel(p: Pipeline, now: Date): string {
+	if (p.status === "canceling") return "canceling";
 	if (p.status === "running" && p.startedAt) return formatDuration(now.getTime() - Date.parse(p.startedAt));
 	const at = p.finishedAt ?? p.updatedAt ?? p.createdAt;
 	return at ? `${formatDuration(now.getTime() - Date.parse(at))} ago` : p.status;

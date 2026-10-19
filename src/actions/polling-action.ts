@@ -42,6 +42,8 @@ export type PollResult<TData> = {
 	position?: string;
 	/** Poll again sooner than the configured interval, e.g. while something is in progress. */
 	fast?: boolean;
+	/** Poll again after exactly this many seconds, overriding the interval and `fast`. */
+	delaySeconds?: number;
 	/** Re-render the view a few times a second with an increasing `frame`. */
 	animate?: boolean;
 };
@@ -172,11 +174,12 @@ export abstract class PollingAction<TSettings extends PollSettings, TData> exten
 
 		let delay = Math.max(10, Number(watch.settings.pollSeconds) || DEFAULT_POLL_SECONDS);
 		if (result.fast) delay = Math.min(delay, FAST_POLL_SECONDS);
+		if (result.delaySeconds !== undefined) delay = result.delaySeconds;
 		watch.pollTimer = setTimeout(() => void this.refresh(watch), delay * 1000);
 		if (result.animate) {
 			watch.animTimer = setInterval(() => {
 				const view = watch.view;
-				if (view?.kind === "pipeline") void this.show(watch, { ...view, frame: ++watch.frame });
+				if (view?.kind === "pipeline" || view?.kind === "working") void this.show(watch, { ...view, frame: ++watch.frame });
 			}, ANIMATION_MS);
 		}
 	}

@@ -19,7 +19,8 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 - **Tap** retries a failed, canceled, or passed-with-warnings pipeline (reruns its failed jobs).
 - **Hold** (0.6 s) cancels a running pipeline.
 
-A press shows **Retrying…** / **Canceling…** straight away; if there is nothing to do it says so (e.g. **No failed jobs**, **Not running**). After a retry or cancel, runner keys refresh about 5 seconds later so they pick up the jobs.
+A press shows **Retrying…** / **Canceling…** straight away and keeps showing it until GitLab reports the
+pipeline restarted or stopped (checking every 2 s, for up to 30 s); if there is nothing to do it says so (e.g. **No failed jobs**, **Not running**). After a retry or cancel, runner keys refresh about 5 seconds later so they pick up the jobs.
 
 On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** on the strip do the same.
 **Turning** the dial switches what it shows. Its settings only show the fields for the chosen mode:
