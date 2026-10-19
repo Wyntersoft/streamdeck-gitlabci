@@ -68,7 +68,8 @@ export type Connection = {
 
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
 
-export type GitLabErrorKind = "auth" | "forbidden" | "not-found" | "no-pipeline" | "http" | "network";
+/** `scope`: the token is valid but lacks a scope the request needs (e.g. read_api where api is required). */
+export type GitLabErrorKind = "auth" | "scope" | "forbidden" | "not-found" | "no-pipeline" | "http" | "network";
 
 export class GitLabError extends Error {
 	readonly kind: GitLabErrorKind;
@@ -127,7 +128,15 @@ async function request<T>(conn: Connection, method: "GET" | "POST", path: string
 		// Name the request in the message so logs show which instance/path failed (never the token).
 		const message = `${apiMessage} (${method} ${url.split("?")[0]})`;
 		const kind: GitLabErrorKind =
-			res.status === 401 || body?.error === "insufficient_scope" ? "auth" : res.status === 403 ? "forbidden" : res.status === 404 ? "not-found" : "http";
+			body?.error === "insufficient_scope"
+				? "scope"
+				: res.status === 401
+					? "auth"
+					: res.status === 403
+						? "forbidden"
+						: res.status === 404
+							? "not-found"
+							: "http";
 		throw new GitLabError(message, kind, res.status, apiMessage);
 	}
 	return (await res.json()) as T;

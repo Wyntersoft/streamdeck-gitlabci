@@ -218,6 +218,8 @@ export function errorLabel(err: unknown): string {
 		switch (err.kind) {
 			case "auth":
 				return "Auth failed";
+			case "scope":
+				return "Needs api scope";
 			case "forbidden":
 				return "No access";
 			case "not-found":

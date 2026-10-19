@@ -76,7 +76,7 @@ test("fetchLatestPipeline classifies errors", async () => {
 			(err: GitLabError) => err.kind,
 		);
 	assert.equal(await kind(401, { message: "401 Unauthorized" }), "auth");
-	assert.equal(await kind(403, { error: "insufficient_scope" }), "auth");
+	assert.equal(await kind(403, { error: "insufficient_scope" }), "scope");
 	assert.equal(await kind(403, { message: "403 Forbidden" }), "no-pipeline");
 	assert.equal(await kind(404, { message: "404 Project Not Found" }), "not-found");
 	assert.equal(await kind(404, { message: "404 Not found" }), "no-pipeline");

@@ -114,9 +114,7 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 		} catch (err) {
 			streamDeck.logger.warn(`Pipeline ${verb} failed: ${(err as Error).message}`);
 			await watch.action.showAlert();
-			// A read-only token is the usual cause; say so until the next poll.
-			const message = errorLabel(err) === "Auth failed" ? "Needs api scope" : errorLabel(err);
-			await this.show(watch, { kind: "error", label: this.label(watch), message });
+			await this.show(watch, { kind: "error", label: this.label(watch), message: errorLabel(err) });
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		}
 		await this.refresh(watch);

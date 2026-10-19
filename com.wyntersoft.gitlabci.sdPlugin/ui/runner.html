@@ -31,8 +31,9 @@
 		<sdpi-textfield setting="gitlabUrl" global placeholder="https://gitlab.com"></sdpi-textfield>
 	</sdpi-item>
 	<sdpi-item label="Access token">
-		<sdpi-password setting="token" global placeholder="read_api scope"></sdpi-password>
+		<sdpi-password setting="token" global placeholder="token with api scope"></sdpi-password>
 	</sdpi-item>
+	<p class="hint">Personal access token with the <b>api</b> scope. A <b>read_api</b> token only shows status; retry and cancel need <b>api</b>. Runner keys need access to the runners (admin for instance runners).</p>
 
 	<details>
 		<summary>Override for this key</summary>

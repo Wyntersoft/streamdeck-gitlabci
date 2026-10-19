@@ -30,8 +30,9 @@ On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** 
 
 The strip shows the position (e.g. `2/5`), and the dial remembers where it was.
 
-Retry and cancel can be turned off with the checkboxes in the settings. They need a token with `api` scope;
-with a `read_api` token the key is view-only.
+Retry and cancel can be turned off with the checkboxes in the settings. Both need a token with the
+`api` scope (see [Creating a token](#creating-a-token)); with a `read_api` token the key only shows status
+and a press shows **Needs api scope**.
 
 ### Runner Status (keys)
 Pick a runner from the dropdown. The key shows **Idle**, **Paused**, **Offline/Stale**, or, while busy,
@@ -50,8 +51,31 @@ new or removed runners show up without any configuration.
 ## Requirements
 
 - Stream Deck 7.1+
-- A GitLab personal access token: `read_api` to view, `api` to retry/cancel. Runner keys need
-  access to the runners (administrator for instance runners).
+- A GitLab personal access token with the **`api`** scope (see below)
+
+### Creating a token
+
+1. In GitLab, open your avatar → **Edit profile** → **Access tokens** → **Add new token**.
+2. Give it a name (e.g. *Stream Deck*) and an expiry date.
+3. Tick the **`api`** scope. Nothing else is needed.
+4. Create it, copy the token, and paste it into **Access token** in any key's settings. It's shared by
+   every key and dial.
+
+Why `api`: GitLab has no narrower scope that allows retrying or cancelling a pipeline. A `read_api`
+token works for viewing only: status, runners and health show, but tap/hold on a Branch key fails with
+**Needs api scope**. Use `read_api` if you want a strictly read-only deck and have turned retry/cancel off.
+
+What the token's account needs:
+
+| Feature | Access required |
+| --- | --- |
+| Branch status | Can view the project's pipelines (Reporter or above on private projects) |
+| Retry / cancel | Developer or above on the project |
+| Runner Status / Runner Health | Instance runners: administrator. Group/project runners: Maintainer/Owner |
+| Queue depth on Runner Health | Administrator (otherwise shows `?`) |
+
+A project or group access token with the `api` scope and the Developer role also works, limited to
+that project or group.
 
 ## Setup
 
