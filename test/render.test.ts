@@ -43,6 +43,12 @@ test("branch colours follow the spec", () => {
 	assert.equal(pipelineStyle({ ...base, status: "failed" }).background, "#C91C00");
 	assert.equal(pipelineStyle({ ...base, status: "running" }).background, "#00BCD4");
 	assert.equal(pipelineStyle({ ...base, status: "pending" }).background, "#00BCD4");
+	// Any job waiting for a runner turns it purple, even while others run.
+	const queued = { ...base, status: "running" as const, startedAt: "2026-01-01T11:50:00Z", queue: { count: 1, seconds: 150 } };
+	assert.equal(pipelineStyle(queued).background, "#6E49CB");
+	assert.equal(timeLabel(queued, now), "queued 2m");
+	assert.equal(pipelineStyle({ ...queued, queue: { count: 0, seconds: 0 } }).background, "#00BCD4");
+	assert.equal(pipelineStyle({ ...queued, status: "canceling" }).background, "#535158");
 });
 
 test("runner keys show idle or the running job", () => {

@@ -21,6 +21,8 @@ export type Pipeline = {
 	status: PipelineStatus;
 	/** True when the pipeline passed but jobs allowed to fail did fail. */
 	warnings: boolean;
+	/** Jobs waiting for a runner, filled in by {@link fetchQueue} for active pipelines. */
+	queue?: PipelineQueue;
 	ref: string;
 	sha: string;
 	webUrl: string;
@@ -29,6 +31,13 @@ export type Pipeline = {
 	finishedAt?: string;
 	updatedAt?: string;
 	duration?: number;
+};
+
+export type PipelineQueue = {
+	/** Number of jobs waiting for a runner. */
+	count: number;
+	/** How long the longest-waiting job has been queued. */
+	seconds: number;
 };
 
 export type Runner = {
@@ -186,6 +195,12 @@ async function latestFromList(conn: Connection, projectId: string, ref: string |
 	const [latest] = await request<{ id: number }[]>(conn, "GET", `${project(projectId)}/pipelines?${params}`, fetchFn);
 	if (!latest) throw new GitLabError(`No pipelines for ${branch ?? "the default branch"}`, "no-pipeline");
 	return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/${latest.id}`, fetchFn));
+}
+
+/** Jobs of a pipeline that are waiting for a runner (status `pending`). */
+export async function fetchQueue(conn: Connection, projectId: string, pipelineId: number, fetchFn: FetchFn = fetch): Promise<PipelineQueue> {
+	const jobs = await request<{ queued_duration?: number | null }[]>(conn, "GET", `${project(projectId)}/pipelines/${pipelineId}/jobs?scope[]=pending&per_page=100`, fetchFn);
+	return { count: jobs.length, seconds: Math.max(0, ...jobs.map((j) => j.queued_duration ?? 0)) };
 }
 
 /** Retries the failed and canceled jobs of a pipeline. Requires a token with `api` scope. */

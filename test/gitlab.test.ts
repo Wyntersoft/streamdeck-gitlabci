@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
 	cancelPipeline,
 	fetchLatestPipeline,
+	fetchQueue,
 	fetchRunnerFleet,
 	fetchRunnerSnapshot,
 	fetchRunnerJobs,
@@ -243,4 +244,13 @@ test("a 403 from pipelines/latest is resolved through the pipeline list", async 
 		"GET v4/projects/p/pipelines/7": () => json(200, pipelineBody),
 	});
 	assert.equal((await fetchLatestPipeline(conn, "p", undefined, listed)).id, 7);
+});
+
+test("fetchQueue counts pending jobs and the longest wait", async () => {
+	const f = fake({
+		"GET v4/projects/g%2Fp/pipelines/7/jobs?scope[]=pending&per_page=100": () => json(200, [{ queued_duration: 12.5 }, { queued_duration: 157.5 }, { queued_duration: null }]),
+	});
+	assert.deepEqual(await fetchQueue(conn, "g/p", 7, f), { count: 3, seconds: 157.5 });
+	const empty = fake({ "GET v4/projects/g%2Fp/pipelines/7/jobs?scope[]=pending&per_page=100": () => json(200, []) });
+	assert.deepEqual(await fetchQueue(conn, "g/p", 7, empty), { count: 0, seconds: 0 });
 });

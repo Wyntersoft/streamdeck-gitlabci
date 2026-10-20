@@ -13,7 +13,8 @@ Shows the latest pipeline for a project's branch (default branch if none is give
 | Green | Passed |
 | Yellow | Passed with warnings (an `allow_failure` job failed) |
 | Red | Failed |
-| Cyan | Building (running or queued) |
+| Cyan | Building |
+| Purple | Waiting for a runner (at least one job queued); footer shows how long |
 | Grey | Canceled, skipped, manual or scheduled |
 
 - **Tap** retries a failed, canceled, or passed-with-warnings pipeline (reruns its failed jobs).

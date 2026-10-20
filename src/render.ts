@@ -27,6 +27,7 @@ const GREEN: Colors = { background: "#108548", foreground: WHITE };
 const RED: Colors = { background: "#C91C00", foreground: WHITE };
 const YELLOW: Colors = { background: "#F2C200", foreground: INK };
 const CYAN: Colors = { background: "#00BCD4", foreground: INK };
+const PURPLE: Colors = { background: "#6E49CB", foreground: WHITE };
 const GREY: Colors = { background: "#535158", foreground: WHITE };
 const DARK: Colors = { background: "#2B2B2B", foreground: WHITE };
 
@@ -47,9 +48,10 @@ const PIPELINE_STYLES: Record<PipelineStatus, Style> = {
 
 const FONT = "Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif";
 
-/** Green when passed, yellow when passed with warnings, red when failed, cyan while building. */
+/** Green when passed, yellow when passed with warnings, red when failed, cyan while building, purple while a job waits for a runner. */
 export function pipelineStyle(p: Pipeline): Style {
 	if (p.status === "success" && p.warnings) return { ...YELLOW, glyph: "warning" };
+	if (p.queue?.count && p.status !== "canceling") return { ...PURPLE, glyph: "clock" };
 	return PIPELINE_STYLES[p.status] ?? { ...DARK, glyph: "question" };
 }
 
@@ -195,6 +197,7 @@ function row(x: number, y: number, value: string, caption: string, color: string
 /** Elapsed time for running pipelines, time since completion otherwise. */
 export function timeLabel(p: Pipeline, now: Date): string {
 	if (p.status === "canceling") return "canceling";
+	if (p.queue?.count) return `queued ${formatDuration(p.queue.seconds * 1000)}`;
 	if (p.status === "running" && p.startedAt) return formatDuration(now.getTime() - Date.parse(p.startedAt));
 	const at = p.finishedAt ?? p.updatedAt ?? p.createdAt;
 	return at ? `${formatDuration(now.getTime() - Date.parse(at))} ago` : p.status;

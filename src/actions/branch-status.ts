@@ -1,7 +1,7 @@
 import streamDeck, { action } from "@elgato/streamdeck";
 
 import { resolveConnection } from "../connection";
-import { cancelPipeline, type Connection, fetchLatestPipeline, isActive, isRetryable, listBranches, type Pipeline, retryPipeline } from "../gitlab";
+import { cancelPipeline, type Connection, fetchLatestPipeline, fetchQueue, isActive, isRetryable, listBranches, type Pipeline, retryPipeline } from "../gitlab";
 import { INTENT_TIMEOUT_MS, type Intent, intentDone } from "../intent";
 import { runnerHub } from "../runner-hub";
 import { dialTargets, keyTarget, needsBranchList, step, type Target, type TargetSettings } from "../targets";
@@ -65,6 +65,10 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 
 		const conn = await resolveConnection(watch.settings, target.baseUrl);
 		const pipeline = await fetchLatestPipeline(conn, target.project, target.ref);
+		if (isActive(pipeline.status)) {
+			// Shown in purple when jobs are stuck waiting for a runner; the status alone says "running".
+			pipeline.queue = await fetchQueue(conn, target.project, pipeline.id).catch(() => undefined);
+		}
 		const data = { conn, project: target.project, pipeline };
 
 		const intent = this.#intents.get(watch.action.id);
@@ -80,7 +84,7 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 			data,
 			position,
 			fast: isActive(pipeline.status),
-			animate: pipeline.status === "running" || pipeline.status === "canceling",
+			animate: (pipeline.status === "running" && !pipeline.queue?.count) || pipeline.status === "canceling",
 		};
 	}
 
