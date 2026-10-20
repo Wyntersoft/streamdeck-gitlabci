@@ -78,7 +78,6 @@ test("fetchLatestPipeline classifies errors", async () => {
 		);
 	assert.equal(await kind(401, { message: "401 Unauthorized" }), "auth");
 	assert.equal(await kind(403, { error: "insufficient_scope" }), "scope");
-	assert.equal(await kind(403, { message: "403 Forbidden" }), "no-pipeline");
 	assert.equal(await kind(404, { message: "404 Project Not Found" }), "not-found");
 	assert.equal(await kind(404, { message: "404 Not found" }), "no-pipeline");
 	assert.equal(await kind(500, { message: "boom" }), "http");
@@ -217,4 +216,31 @@ test("fetchRunnerSnapshot falls back to REST for non-admin tokens", async () => 
 	assert.equal(snapshot.queued, undefined);
 	// No per-runner request for the idle runner.
 	assert.equal(f.calls.filter((c) => c.url.includes("/runners/2/jobs")).length, 0);
+});
+
+test("a 403 from pipelines/latest is resolved through the pipeline list", async () => {
+	const forbidden = () => json(403, { message: "403 Forbidden" });
+	// The ref has no pipeline.
+	const none = fake({
+		"GET v4/projects/p/pipelines/latest?ref=dev": forbidden,
+		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc&ref=dev": () => json(200, []),
+	});
+	assert.equal(await fetchLatestPipeline(conn, "p", "dev", none).catch((err: GitLabError) => err.kind), "no-pipeline");
+
+	// The token can't see the project's CI.
+	const denied = fake({
+		"GET v4/projects/p/pipelines/latest": forbidden,
+		"GET v4/projects/p": () => json(200, { default_branch: "main" }),
+		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc&ref=main": forbidden,
+	});
+	assert.equal(await fetchLatestPipeline(conn, "p", undefined, denied).catch((err: GitLabError) => err.kind), "forbidden");
+
+	// The list works even though "latest" didn't.
+	const listed = fake({
+		"GET v4/projects/p/pipelines/latest": forbidden,
+		"GET v4/projects/p": () => json(200, { default_branch: "main" }),
+		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc&ref=main": () => json(200, [{ id: 7 }]),
+		"GET v4/projects/p/pipelines/7": () => json(200, pipelineBody),
+	});
+	assert.equal((await fetchLatestPipeline(conn, "p", undefined, listed)).id, 7);
 });

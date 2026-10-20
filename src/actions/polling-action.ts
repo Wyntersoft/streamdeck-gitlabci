@@ -229,7 +229,7 @@ export function errorLabel(err: unknown): string {
 			case "scope":
 				return "Needs api scope";
 			case "forbidden":
-				return "No access";
+				return "No CI access";
 			case "not-found":
 				return "Not found";
 			case "no-pipeline":

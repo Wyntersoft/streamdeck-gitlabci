@@ -169,12 +169,23 @@ export async function fetchLatestPipeline(conn: Connection, projectId: string, r
 	try {
 		return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/latest${query}`, fetchFn));
 	} catch (err) {
-		// For a readable project whose ref has no pipeline GitLab answers 403 (or 404 without "Project" in the message).
-		if (err instanceof GitLabError && (err.kind === "forbidden" || (err.kind === "not-found" && !/project/i.test(err.apiMessage)))) {
-			throw new GitLabError(err.message, "no-pipeline", err.status, err.apiMessage);
-		}
+		if (!(err instanceof GitLabError)) throw err;
+		// 404 without "Project" in the message: the project is readable but the ref has no pipeline.
+		if (err.kind === "not-found" && !/project/i.test(err.apiMessage)) throw new GitLabError(err.message, "no-pipeline", err.status, err.apiMessage);
+		// 403 means either "this ref has no pipeline" or "this token can't see the project's CI"; find out which.
+		if (err.kind === "forbidden") return latestFromList(conn, projectId, ref, fetchFn);
 		throw err;
 	}
+}
+
+/** Finds the latest pipeline via the pipeline list, which answers 403 only when the token really lacks access. */
+async function latestFromList(conn: Connection, projectId: string, ref: string | undefined, fetchFn: FetchFn): Promise<Pipeline> {
+	const branch = ref?.trim() || (await request<{ default_branch?: string }>(conn, "GET", project(projectId), fetchFn)).default_branch;
+	const params = new URLSearchParams({ per_page: "1", order_by: "id", sort: "desc" });
+	if (branch) params.set("ref", branch);
+	const [latest] = await request<{ id: number }[]>(conn, "GET", `${project(projectId)}/pipelines?${params}`, fetchFn);
+	if (!latest) throw new GitLabError(`No pipelines for ${branch ?? "the default branch"}`, "no-pipeline");
+	return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/${latest.id}`, fetchFn));
 }
 
 /** Retries the failed and canceled jobs of a pipeline. Requires a token with `api` scope. */
