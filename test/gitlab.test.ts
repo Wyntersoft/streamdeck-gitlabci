@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
 	cancelPipeline,
 	fetchLatestPipeline,
-	fetchQueue,
+	fetchProgress,
 	fetchRunnerFleet,
 	fetchRunnerSnapshot,
 	fetchRunnerJobs,
@@ -246,11 +246,26 @@ test("a 403 from pipelines/latest is resolved through the pipeline list", async 
 	assert.equal((await fetchLatestPipeline(conn, "p", undefined, listed)).id, 7);
 });
 
-test("fetchQueue counts pending jobs and the longest wait", async () => {
+test("fetchProgress summarises the pipeline's jobs", async () => {
 	const f = fake({
-		"GET v4/projects/g%2Fp/pipelines/7/jobs?scope[]=pending&per_page=100": () => json(200, [{ queued_duration: 12.5 }, { queued_duration: 157.5 }, { queued_duration: null }]),
+		"GET v4/projects/g%2Fp/pipelines/7/jobs?per_page=100": () =>
+			json(200, [
+				{ name: "old", stage: "build", status: "running", started_at: "2026-01-01T00:00:00Z" },
+				{ name: "new", stage: "build", status: "running", started_at: "2026-01-01T00:05:00Z" },
+				{ name: "deploy", stage: "deploy", status: "pending", queued_duration: 157.5 },
+				{ name: "lint", stage: "test", status: "success" },
+				{ name: "flaky", stage: "test", status: "failed" },
+				{ name: "publish", stage: "deploy", status: "manual" },
+			]),
 	});
-	assert.deepEqual(await fetchQueue(conn, "g/p", 7, f), { count: 3, seconds: 157.5 });
-	const empty = fake({ "GET v4/projects/g%2Fp/pipelines/7/jobs?scope[]=pending&per_page=100": () => json(200, []) });
-	assert.deepEqual(await fetchQueue(conn, "g/p", 7, empty), { count: 0, seconds: 0 });
+	assert.deepEqual(await fetchProgress(conn, "g/p", 7, f), {
+		running: [
+			{ name: "new", stage: "build" },
+			{ name: "old", stage: "build" },
+		],
+		pending: [{ name: "deploy", stage: "deploy" }],
+		queuedSeconds: 157.5,
+		done: 2,
+		total: 5,
+	});
 });

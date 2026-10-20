@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { fit, formatDuration, healthColors, type KeyView, pipelineStyle, renderDial, renderKey, timeLabel } from "../src/render.ts";
+import { fit, formatDuration, healthColors, type KeyView, pipelineStyle, progressLines, renderDial, renderKey, timeLabel } from "../src/render.ts";
 
 const now = new Date("2026-01-01T12:00:00Z");
 const base = { id: 1, ref: "main", sha: "x", webUrl: "u", warnings: false };
@@ -44,10 +44,11 @@ test("branch colours follow the spec", () => {
 	assert.equal(pipelineStyle({ ...base, status: "running" }).background, "#00BCD4");
 	assert.equal(pipelineStyle({ ...base, status: "pending" }).background, "#00BCD4");
 	// Any job waiting for a runner turns it purple, even while others run.
-	const queued = { ...base, status: "running" as const, startedAt: "2026-01-01T11:50:00Z", queue: { count: 1, seconds: 150 } };
+	const progress = { running: [], pending: [{ name: "deploy", stage: "deploy" }], queuedSeconds: 150, done: 2, total: 3 };
+	const queued = { ...base, status: "running" as const, startedAt: "2026-01-01T11:50:00Z", progress };
 	assert.equal(pipelineStyle(queued).background, "#6E49CB");
 	assert.equal(timeLabel(queued, now), "queued 2m");
-	assert.equal(pipelineStyle({ ...queued, queue: { count: 0, seconds: 0 } }).background, "#00BCD4");
+	assert.equal(pipelineStyle({ ...queued, progress: { ...progress, pending: [] } }).background, "#00BCD4");
 	assert.equal(pipelineStyle({ ...queued, status: "canceling" }).background, "#535158");
 });
 
@@ -104,4 +105,20 @@ test("dial images are 200x100 and show the list position", () => {
 	assert.doesNotMatch(dialSvg({ kind: "setup", title: "x" }), /\d\/\d/);
 	const health = dialSvg({ kind: "health", label: "Runners", fleet: { total: 5, online: 4, busy: 3, queued: 2 } });
 	for (const caption of ["online", "building", "queued"]) assert.match(health, new RegExp(`>${caption}<`));
+});
+
+test("active pipelines say what they're doing", () => {
+	const job = (name: string) => ({ name, stage: "s" });
+	const p = (progress: Parameters<typeof progressLines>[0]["progress"], status: "running" | "canceling" = "running") => ({ ...base, status, startedAt: "2026-01-01T11:56:00Z", progress });
+	assert.deepEqual(progressLines(p({ running: [job("test")], pending: [], queuedSeconds: 0, done: 1, total: 3 })), ["test", "1 of 3 done"]);
+	assert.deepEqual(progressLines(p({ running: [job("a"), job("b")], pending: [], queuedSeconds: 0, done: 0, total: 4 })), ["a", "+1 more · 0/4"]);
+	assert.deepEqual(progressLines(p({ running: [job("a")], pending: [job("deploy")], queuedSeconds: 90, done: 2, total: 3 })), ["deploy", "needs a runner"]);
+	assert.equal(progressLines(p({ running: [], pending: [], queuedSeconds: 0, done: 0, total: 0 })), undefined);
+	assert.equal(progressLines(p({ running: [job("a")], pending: [], queuedSeconds: 0, done: 0, total: 1 }, "canceling")), undefined);
+	assert.equal(progressLines({ ...base, status: "running" }), undefined);
+
+	const out = svg({ kind: "pipeline", label: "web-app", pipeline: p({ running: [job("build-image")], pending: [], queuedSeconds: 0, done: 1, total: 3 }) });
+	assert.match(out, />build-image</);
+	assert.match(out, />1 of 3 done</);
+	assert.match(out, />main · 4m</);
 });

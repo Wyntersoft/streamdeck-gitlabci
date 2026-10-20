@@ -21,8 +21,8 @@ export type Pipeline = {
 	status: PipelineStatus;
 	/** True when the pipeline passed but jobs allowed to fail did fail. */
 	warnings: boolean;
-	/** Jobs waiting for a runner, filled in by {@link fetchQueue} for active pipelines. */
-	queue?: PipelineQueue;
+	/** What the pipeline is doing, filled in by {@link fetchProgress} for active pipelines. */
+	progress?: PipelineProgress;
 	ref: string;
 	sha: string;
 	webUrl: string;
@@ -33,11 +33,19 @@ export type Pipeline = {
 	duration?: number;
 };
 
-export type PipelineQueue = {
-	/** Number of jobs waiting for a runner. */
-	count: number;
-	/** How long the longest-waiting job has been queued. */
-	seconds: number;
+export type JobBrief = { name: string; stage: string };
+
+export type PipelineProgress = {
+	/** Jobs executing on a runner, most recently started first. */
+	running: JobBrief[];
+	/** Jobs waiting for a runner. */
+	pending: JobBrief[];
+	/** How long the longest-waiting pending job has been queued. */
+	queuedSeconds: number;
+	/** Finished jobs (passed, failed, canceled or skipped). */
+	done: number;
+	/** Jobs that will run, i.e. excluding manual jobs nobody has started. */
+	total: number;
 };
 
 export type Runner = {
@@ -197,10 +205,22 @@ async function latestFromList(conn: Connection, projectId: string, ref: string |
 	return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/${latest.id}`, fetchFn));
 }
 
-/** Jobs of a pipeline that are waiting for a runner (status `pending`). */
-export async function fetchQueue(conn: Connection, projectId: string, pipelineId: number, fetchFn: FetchFn = fetch): Promise<PipelineQueue> {
-	const jobs = await request<{ queued_duration?: number | null }[]>(conn, "GET", `${project(projectId)}/pipelines/${pipelineId}/jobs?scope[]=pending&per_page=100`, fetchFn);
-	return { count: jobs.length, seconds: Math.max(0, ...jobs.map((j) => j.queued_duration ?? 0)) };
+/** Which jobs of a pipeline are running, which are waiting for a runner, and how far along it is. */
+export async function fetchProgress(conn: Connection, projectId: string, pipelineId: number, fetchFn: FetchFn = fetch): Promise<PipelineProgress> {
+	type Job = { name: string; stage: string; status: string; started_at?: string | null; queued_duration?: number | null };
+	const jobs = await request<Job[]>(conn, "GET", `${project(projectId)}/pipelines/${pipelineId}/jobs?per_page=100`, fetchFn);
+	const brief = (j: Job): JobBrief => ({ name: j.name, stage: j.stage });
+	const pending = jobs.filter((j) => j.status === "pending");
+	return {
+		running: jobs
+			.filter((j) => j.status === "running")
+			.sort((a, b) => Date.parse(b.started_at ?? "") - Date.parse(a.started_at ?? ""))
+			.map(brief),
+		pending: pending.map(brief),
+		queuedSeconds: Math.max(0, ...pending.map((j) => j.queued_duration ?? 0)),
+		done: jobs.filter((j) => ["success", "failed", "canceled", "skipped"].includes(j.status)).length,
+		total: jobs.filter((j) => j.status !== "manual").length,
+	};
 }
 
 /** Retries the failed and canceled jobs of a pipeline. Requires a token with `api` scope. */

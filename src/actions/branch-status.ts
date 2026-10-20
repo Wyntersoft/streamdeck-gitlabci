@@ -1,8 +1,9 @@
 import streamDeck, { action } from "@elgato/streamdeck";
 
 import { resolveConnection } from "../connection";
-import { cancelPipeline, type Connection, fetchLatestPipeline, fetchQueue, isActive, isRetryable, listBranches, type Pipeline, retryPipeline } from "../gitlab";
+import { cancelPipeline, type Connection, fetchLatestPipeline, fetchProgress, isActive, isRetryable, listBranches, type Pipeline, retryPipeline } from "../gitlab";
 import { INTENT_TIMEOUT_MS, type Intent, intentDone } from "../intent";
+import { progressLines } from "../render";
 import { runnerHub } from "../runner-hub";
 import { dialTargets, keyTarget, needsBranchList, step, type Target, type TargetSettings } from "../targets";
 import { errorLabel, type PollResult, type PollSettings, PollingAction, type Watch } from "./polling-action";
@@ -66,8 +67,8 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 		const conn = await resolveConnection(watch.settings, target.baseUrl);
 		const pipeline = await fetchLatestPipeline(conn, target.project, target.ref);
 		if (isActive(pipeline.status)) {
-			// Shown in purple when jobs are stuck waiting for a runner; the status alone says "running".
-			pipeline.queue = await fetchQueue(conn, target.project, pipeline.id).catch(() => undefined);
+			// The status alone says "running" even when the only job left is waiting for a runner.
+			pipeline.progress = await fetchProgress(conn, target.project, pipeline.id).catch(() => undefined);
 		}
 		const data = { conn, project: target.project, pipeline };
 
@@ -84,7 +85,8 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 			data,
 			position,
 			fast: isActive(pipeline.status),
-			animate: (pipeline.status === "running" && !pipeline.queue?.count) || pipeline.status === "canceling",
+			// Only the spinner glyph animates; keys showing job details don't need redrawing.
+			animate: (pipeline.status === "running" && !progressLines(pipeline)) || pipeline.status === "canceling",
 		};
 	}
 

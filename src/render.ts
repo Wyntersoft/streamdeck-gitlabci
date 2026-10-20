@@ -51,7 +51,7 @@ const FONT = "Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif";
 /** Green when passed, yellow when passed with warnings, red when failed, cyan while building, purple while a job waits for a runner. */
 export function pipelineStyle(p: Pipeline): Style {
 	if (p.status === "success" && p.warnings) return { ...YELLOW, glyph: "warning" };
-	if (p.queue?.count && p.status !== "canceling") return { ...PURPLE, glyph: "clock" };
+	if (p.progress?.pending.length && p.status !== "canceling") return { ...PURPLE, glyph: "clock" };
 	return PIPELINE_STYLES[p.status] ?? { ...DARK, glyph: "question" };
 }
 
@@ -77,8 +77,12 @@ function card(view: KeyView, now: Date): Card {
 		case "error":
 			return glyph({ background: "#5C1A1A", foreground: WHITE }, view.label, "alert", view.message);
 		case "pipeline": {
-			const style = pipelineStyle(view.pipeline);
-			return glyph(style, view.label, style.glyph, `${view.pipeline.ref} · ${timeLabel(view.pipeline, now)}`, view.frame);
+			const { pipeline } = view;
+			const style = pipelineStyle(pipeline);
+			const footer = `${pipeline.ref} · ${timeLabel(pipeline, now)}`;
+			const lines = progressLines(pipeline);
+			if (lines) return { colors: style, title: view.label, footer, body: { type: "lines", lines } };
+			return glyph(style, view.label, style.glyph, footer, view.frame);
 		}
 		case "runner":
 			return runnerCard(view, now);
@@ -99,6 +103,19 @@ function card(view: KeyView, now: Date): Card {
 			};
 		}
 	}
+}
+
+/**
+ * What an active pipeline is doing, as two lines: the waiting job and "needs a runner" while something is queued,
+ * otherwise the running job and how many jobs are done. Undefined when there's nothing specific to say.
+ */
+export function progressLines(p: Pipeline): [string, string] | undefined {
+	const progress = p.progress;
+	if (!progress || p.status === "canceling") return undefined;
+	const doneOf = `${progress.done} of ${progress.total} done`;
+	if (progress.pending.length) return [progress.pending[0].name, "needs a runner"];
+	if (progress.running.length) return [progress.running[0].name, progress.running.length > 1 ? `+${progress.running.length - 1} more · ${progress.done}/${progress.total}` : doneOf];
+	return undefined;
 }
 
 /** Red with no runners online, yellow when jobs are queued, cyan while building, green when idle. */
@@ -197,7 +214,7 @@ function row(x: number, y: number, value: string, caption: string, color: string
 /** Elapsed time for running pipelines, time since completion otherwise. */
 export function timeLabel(p: Pipeline, now: Date): string {
 	if (p.status === "canceling") return "canceling";
-	if (p.queue?.count) return `queued ${formatDuration(p.queue.seconds * 1000)}`;
+	if (p.progress?.pending.length) return `queued ${formatDuration(p.progress.queuedSeconds * 1000)}`;
 	if (p.status === "running" && p.startedAt) return formatDuration(now.getTime() - Date.parse(p.startedAt));
 	const at = p.finishedAt ?? p.updatedAt ?? p.createdAt;
 	return at ? `${formatDuration(now.getTime() - Date.parse(at))} ago` : p.status;
