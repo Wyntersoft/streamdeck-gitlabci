@@ -6,7 +6,8 @@ Every action works on keys and on Stream Deck + dials (touch strip).
 ## Actions
 
 ### Branch Status
-Shows the latest pipeline for a project's branch (default branch if none is given):
+Shows the latest pipeline for a project's branch, or, with no branch given, the most recently started
+pipeline on any branch (the footer then shows which branch it ran on):
 
 | Colour | Meaning |
 | --- | --- |
@@ -27,10 +28,10 @@ On a dial, **push** = tap, **hold the push** = hold, and **touch / long-touch** 
 **Turning** the dial switches what it shows. Its settings only show the fields for the chosen mode:
 
 - **Turn to switch: branches of a project**: set *Project*, and optionally list *Branches*
-  (one per line). With the list blank it turns through the default branch followed by the 20 most
-  recently updated branches.
+  (one per line). With the list blank it turns through *all branches* (the most recent pipeline)
+  followed by each of the 20 most recently updated branches.
 - **Turn to switch: projects**: list *Projects*, one per line, as `group/project` or
-  `group/project@branch` (default branch when no branch is given).
+  `group/project@branch` (all branches when no branch is given).
 
 The strip shows the position (e.g. `2/5`), and the dial remembers where it was.
 

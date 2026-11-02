@@ -65,16 +65,16 @@ test("fetchLatestPipeline builds the request and maps the response", async () =>
 
 test("fetchLatestPipeline detects success with warnings", async () => {
 	const f = fake({
-		"GET v4/projects/5/pipelines/latest": () => json(200, { ...pipelineBody, status: "success", detailed_status: { group: "success-with-warnings" } }),
+		"GET v4/projects/5/pipelines/latest?ref=main": () => json(200, { ...pipelineBody, status: "success", detailed_status: { group: "success-with-warnings" } }),
 	});
-	const pipeline = await fetchLatestPipeline({ baseUrl: "https://gl.test" }, "5", undefined, f);
+	const pipeline = await fetchLatestPipeline({ baseUrl: "https://gl.test" }, "5", "main", f);
 	assert.equal(pipeline.warnings, true);
 	assert.equal(header(f.calls[0], "PRIVATE-TOKEN"), undefined);
 });
 
 test("fetchLatestPipeline classifies errors", async () => {
 	const kind = (status: number, body: object) =>
-		fetchLatestPipeline(conn, "p", undefined, async () => json(status, body)).then(
+		fetchLatestPipeline(conn, "p", "main", async () => json(status, body)).then(
 			() => assert.fail("expected rejection"),
 			(err: GitLabError) => err.kind,
 		);
@@ -84,7 +84,7 @@ test("fetchLatestPipeline classifies errors", async () => {
 	assert.equal(await kind(404, { message: "404 Not found" }), "no-pipeline");
 	assert.equal(await kind(500, { message: "boom" }), "http");
 
-	const network = await fetchLatestPipeline(conn, "p", undefined, async () => {
+	const network = await fetchLatestPipeline(conn, "p", "main", async () => {
 		throw new TypeError("fetch failed");
 	}).catch((err: GitLabError) => err.kind);
 	assert.equal(network, "network");
@@ -231,20 +231,18 @@ test("a 403 from pipelines/latest is resolved through the pipeline list", async 
 
 	// The token can't see the project's CI.
 	const denied = fake({
-		"GET v4/projects/p/pipelines/latest": forbidden,
-		"GET v4/projects/p": () => json(200, { default_branch: "main" }),
+		"GET v4/projects/p/pipelines/latest?ref=main": forbidden,
 		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc&ref=main": forbidden,
 	});
-	assert.equal(await fetchLatestPipeline(conn, "p", undefined, denied).catch((err: GitLabError) => err.kind), "forbidden");
+	assert.equal(await fetchLatestPipeline(conn, "p", "main", denied).catch((err: GitLabError) => err.kind), "forbidden");
 
 	// The list works even though "latest" didn't.
 	const listed = fake({
-		"GET v4/projects/p/pipelines/latest": forbidden,
-		"GET v4/projects/p": () => json(200, { default_branch: "main" }),
+		"GET v4/projects/p/pipelines/latest?ref=main": forbidden,
 		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc&ref=main": () => json(200, [{ id: 7 }]),
 		"GET v4/projects/p/pipelines/7": () => json(200, pipelineBody),
 	});
-	assert.equal((await fetchLatestPipeline(conn, "p", undefined, listed)).id, 7);
+	assert.equal((await fetchLatestPipeline(conn, "p", "main", listed)).id, 7);
 });
 
 test("fetchProgress summarises the pipeline's jobs", async () => {
@@ -274,4 +272,18 @@ test("fetchProgress summarises the pipeline's jobs", async () => {
 test("summarizeRunners counts paused runners that are still building", () => {
 	const r = (status: string, paused: boolean, busy: boolean) => ({ id: 1, name: "r", status, paused, busy, type: "instance_type" });
 	assert.deepEqual(summarizeRunners([r("online", true, true), r("online", false, false), r("offline", false, false)], 0), { total: 3, online: 1, busy: 1, queued: 0 });
+});
+
+test("with no ref, fetchLatestPipeline returns the newest pipeline on any branch", async () => {
+	const f = fake({
+		"GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc": () => json(200, [{ id: 9 }]),
+		"GET v4/projects/p/pipelines/9": () => json(200, { ...pipelineBody, id: 9, ref: "feature/login" }),
+	});
+	const pipeline = await fetchLatestPipeline(conn, "p", undefined, f);
+	assert.equal(pipeline.id, 9);
+	assert.equal(pipeline.ref, "feature/login");
+	assert.equal(f.calls.length, 2);
+
+	const none = fake({ "GET v4/projects/p/pipelines?per_page=1&order_by=id&sort=desc": () => json(200, []) });
+	assert.equal(await fetchLatestPipeline(conn, "p", undefined, none).catch((err: GitLabError) => err.kind), "no-pipeline");
 });

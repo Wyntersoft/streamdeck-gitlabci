@@ -24,7 +24,7 @@ test("branches mode turns through the listed branches", () => {
 	);
 });
 
-test("branches mode without a list uses the default branch then recent branches", () => {
+test("branches mode without a list uses all branches then each recent branch", () => {
 	const settings = { project: "g/p" };
 	assert.equal(needsBranchList(settings), true);
 	assert.deepEqual(

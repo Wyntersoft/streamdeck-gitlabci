@@ -6,7 +6,7 @@ import { parseProject } from "./gitlab.ts";
 
 export type Target = {
 	project: string;
-	/** Undefined means the project's default branch. */
+	/** Undefined means all branches: the project's most recent pipeline. */
 	ref?: string;
 	/** Instance URL taken from a pasted project URL. */
 	baseUrl?: string;
@@ -19,8 +19,8 @@ export type TargetSettings = {
 	ref?: string;
 	dialMode?: DialMode;
 	/**
-	 * What a dial turns through, one per line: branch names in branches mode (blank means the project's recently
-	 * updated branches), `group/project` or `group/project@branch` in projects mode.
+	 * What a dial turns through, one per line: branch names in branches mode (blank means all branches followed by the
+	 * recently updated ones), `group/project` (all branches) or `group/project@branch` in projects mode.
 	 */
 	dialList?: string;
 };
@@ -50,8 +50,8 @@ export function needsBranchList(settings: TargetSettings): boolean {
 }
 
 /**
- * Everything a dial turns through. In branches mode without a configured list, that's the default branch followed by
- * `recentBranches` (non-default branches, newest first).
+ * Everything a dial turns through. In branches mode without a configured list, that's all branches (the most recent
+ * pipeline) followed by each of `recentBranches` (newest first).
  */
 export function dialTargets(settings: TargetSettings, recentBranches: string[] = []): Target[] {
 	const list = lines(settings.dialList);

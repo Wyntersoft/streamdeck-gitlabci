@@ -25,17 +25,17 @@
 		<sdpi-textfield setting="project" placeholder="group/project or URL"></sdpi-textfield>
 	</sdpi-item>
 	<sdpi-item label="Branch / tag" data-show="key">
-		<sdpi-textfield setting="ref" placeholder="default branch"></sdpi-textfield>
+		<sdpi-textfield setting="ref" placeholder="all branches"></sdpi-textfield>
 	</sdpi-item>
 	<sdpi-item label="Label" data-show="key">
 		<sdpi-textfield setting="label" placeholder="project name"></sdpi-textfield>
 	</sdpi-item>
 
 	<sdpi-item label="Branches" data-show="dial:branches">
-		<sdpi-textarea setting="dialList" rows="4" placeholder="one per line, e.g.&#10;main&#10;develop&#10;&#10;leave blank for the recently updated branches"></sdpi-textarea>
+		<sdpi-textarea setting="dialList" rows="4" placeholder="one per line, e.g.&#10;main&#10;develop&#10;&#10;leave blank for all branches, then each recently updated branch"></sdpi-textarea>
 	</sdpi-item>
 	<sdpi-item label="Projects" data-show="dial:projects">
-		<sdpi-textarea setting="dialList" rows="5" placeholder="one per line, e.g.&#10;group/project&#10;group/other@develop&#10;&#10;(@branch is optional; default branch otherwise)"></sdpi-textarea>
+		<sdpi-textarea setting="dialList" rows="5" placeholder="one per line, e.g.&#10;group/project&#10;group/other@develop&#10;&#10;(@branch is optional; all branches otherwise)"></sdpi-textarea>
 	</sdpi-item>
 
 	<h3 class="heading">Actions</h3>

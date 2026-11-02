@@ -179,10 +179,11 @@ function toPipeline(p: Record<string, unknown>): Pipeline {
 }
 
 /**
- * Fetches the latest pipeline for the project's ref (default branch when no ref is given).
+ * Fetches the latest pipeline for a branch or tag, or, with no ref, the most recently started pipeline on any branch.
  */
 export async function fetchLatestPipeline(conn: Connection, projectId: string, ref?: string, fetchFn: FetchFn = fetch): Promise<Pipeline> {
-	const query = ref?.trim() ? `?${new URLSearchParams({ ref: ref.trim() })}` : "";
+	if (!ref?.trim()) return latestFromList(conn, projectId, undefined, fetchFn);
+	const query = `?${new URLSearchParams({ ref: ref.trim() })}`;
 	try {
 		return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/latest${query}`, fetchFn));
 	} catch (err) {
@@ -195,13 +196,15 @@ export async function fetchLatestPipeline(conn: Connection, projectId: string, r
 	}
 }
 
-/** Finds the latest pipeline via the pipeline list, which answers 403 only when the token really lacks access. */
+/**
+ * Finds the newest pipeline via the pipeline list, for `ref` or across all branches. Unlike `pipelines/latest`, the list
+ * answers 403 only when the token really lacks access.
+ */
 async function latestFromList(conn: Connection, projectId: string, ref: string | undefined, fetchFn: FetchFn): Promise<Pipeline> {
-	const branch = ref?.trim() || (await request<{ default_branch?: string }>(conn, "GET", project(projectId), fetchFn)).default_branch;
 	const params = new URLSearchParams({ per_page: "1", order_by: "id", sort: "desc" });
-	if (branch) params.set("ref", branch);
+	if (ref?.trim()) params.set("ref", ref.trim());
 	const [latest] = await request<{ id: number }[]>(conn, "GET", `${project(projectId)}/pipelines?${params}`, fetchFn);
-	if (!latest) throw new GitLabError(`No pipelines for ${branch ?? "the default branch"}`, "no-pipeline");
+	if (!latest) throw new GitLabError(`No pipelines${ref ? ` for ${ref}` : ""}`, "no-pipeline");
 	return toPipeline(await request(conn, "GET", `${project(projectId)}/pipelines/${latest.id}`, fetchFn));
 }
 

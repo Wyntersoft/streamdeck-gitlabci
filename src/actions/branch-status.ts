@@ -143,7 +143,7 @@ export class BranchStatusAction extends PollingAction<BranchSettings, BranchData
 		const [primary] = dialTargets(watch.settings);
 		try {
 			const conn = await resolveConnection(watch.settings, primary.baseUrl);
-			const names = (await listBranches(conn, primary.project)).filter((b) => !b.isDefault).map((b) => b.name);
+			const names = (await listBranches(conn, primary.project)).map((b) => b.name);
 			this.#branchLists.set(watch.action.id, { names, fetchedAt: Date.now() });
 			return names;
 		} catch (err) {
