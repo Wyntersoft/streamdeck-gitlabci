@@ -279,9 +279,13 @@ export async function fetchQueuedJobs(conn: Connection, fetchFn: FetchFn = fetch
 		.catch(() => undefined);
 }
 
+/**
+ * `online` counts runners that can take new jobs (online and not paused). `busy` counts every runner executing a job,
+ * including paused ones: pausing stops new jobs but lets the current one finish.
+ */
 export function summarizeRunners(runners: Runner[], queued?: number): RunnerFleet {
 	const online = runners.filter((r) => r.status === "online" && !r.paused);
-	return { total: runners.length, online: online.length, busy: online.filter((r) => r.busy).length, queued };
+	return { total: runners.length, online: online.length, busy: runners.filter((r) => r.busy).length, queued };
 }
 
 /** Sorts runners by name (then ID) so dials and dropdowns list them in a stable order. */

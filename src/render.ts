@@ -129,13 +129,18 @@ export function healthColors(fleet: RunnerFleet): Colors {
 function runnerCard(view: Extract<KeyView, { kind: "runner" }>, now: Date): Card {
 	const { runner, jobs } = view;
 	const glyph = (colors: Colors, g: Glyph, footer: string): Card => ({ colors, title: view.label, footer, body: { type: "glyph", glyph: g } });
-	if (runner.paused) return glyph(GREY, "pause", "Paused");
-	if (runner.status !== "online") return glyph(GREY, "cancel", runner.status === "stale" ? "Stale" : "Offline");
-	if (jobs.length === 0) return glyph(DARK, "idle", "Idle");
+	// A paused runner still finishes the job it has, so show that job before saying "Paused".
+	if (jobs.length === 0) {
+		if (runner.paused) return glyph(GREY, "pause", "Paused");
+		if (runner.status !== "online") return glyph(GREY, "cancel", runner.status === "stale" ? "Stale" : "Offline");
+		return glyph(DARK, "idle", "Idle");
+	}
 
 	const [job] = jobs;
 	const elapsed = job.startedAt ? formatDuration(now.getTime() - Date.parse(job.startedAt)) : "";
-	const footer = [jobs.length > 1 ? `${jobs.length} jobs` : job.name, elapsed].filter(Boolean).join(" · ");
+	// Paused runners say so instead of the job name, which wouldn't fit alongside it.
+	const what = runner.paused ? "paused" : jobs.length > 1 ? `${jobs.length} jobs` : job.name;
+	const footer = [what, elapsed].filter(Boolean).join(" · ");
 	return { colors: CYAN, title: view.label, footer, body: { type: "lines", lines: [job.project, job.ref] } };
 }
 

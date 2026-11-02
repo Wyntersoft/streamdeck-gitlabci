@@ -15,6 +15,7 @@ import {
 	parseProject,
 	retryPipeline,
 	sortRunners,
+	summarizeRunners,
 } from "../src/gitlab.ts";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -268,4 +269,9 @@ test("fetchProgress summarises the pipeline's jobs", async () => {
 		done: 2,
 		total: 5,
 	});
+});
+
+test("summarizeRunners counts paused runners that are still building", () => {
+	const r = (status: string, paused: boolean, busy: boolean) => ({ id: 1, name: "r", status, paused, busy, type: "instance_type" });
+	assert.deepEqual(summarizeRunners([r("online", true, true), r("online", false, false), r("offline", false, false)], 0), { total: 3, online: 1, busy: 1, queued: 0 });
 });

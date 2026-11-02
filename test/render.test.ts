@@ -122,3 +122,11 @@ test("active pipelines say what they're doing", () => {
 	assert.match(out, />1 of 3 done</);
 	assert.match(out, />main · 4m</);
 });
+
+test("a paused runner finishing a job shows the job", () => {
+	const job = { id: 1, name: "unit-tests", stage: "test", ref: "main", project: "api", startedAt: "2026-01-01T11:58:00Z", webUrl: "u" };
+	const out = svg({ kind: "runner", label: "runner-2", runner: { ...runner, paused: true, busy: true }, jobs: [job] });
+	assert.match(out, />api</);
+	assert.match(out, />paused · 2m</);
+	assert.match(svg({ kind: "runner", label: "r", runner: { ...runner, paused: true }, jobs: [] }), />Paused</);
+});
