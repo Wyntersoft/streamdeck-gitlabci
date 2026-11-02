@@ -10,7 +10,8 @@
 		"typecheck": "tsc --noEmit",
 		"test": "node --test --experimental-strip-types test/*.test.ts",
 		"pack": "streamdeck pack com.wyntersoft.gitlabci.sdPlugin --output dist --force",
-		"icons": "node scripts/generate-icons.mjs"
+		"icons": "node scripts/generate-icons.mjs",
+		"marketplace": "node scripts/generate-marketplace.ts"
 	},
 	"dependencies": {
 		"@elgato/streamdeck": "^3.0.2",
