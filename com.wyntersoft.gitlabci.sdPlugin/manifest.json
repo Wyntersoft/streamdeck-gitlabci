@@ -1,10 +1,10 @@
 {
 	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
-	"Name": "GitLab CI",
+	"Name": "Pipeline Status for GitLab",
 	"Version": "0.1.0.0",
 	"Author": "Wyntersoft",
 	"Description": "Watch GitLab CI from your Stream Deck keys and dials. Branch shows the latest pipeline's status (tap to retry a failed build, hold to cancel a running one; turn a dial to switch branch or project). Runner Health summarises runners online, building and queued jobs; turn its dial to see what each runner is building. Runner Status keys show a single runner.",
-	"Category": "GitLab CI",
+	"Category": "Pipeline Status for GitLab",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"Icon": "imgs/plugin/marketplace",
 	"URL": "https://github.com/wyntersoft/streamdeck-gitlabci",

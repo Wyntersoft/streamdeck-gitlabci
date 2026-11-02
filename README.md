@@ -1,6 +1,6 @@
 # streamdeck-gitlabci
 
-A Stream Deck plugin for watching GitLab CI. Works with gitlab.com and self-hosted GitLab.
+**Pipeline Status for GitLab**: a Stream Deck plugin for watching GitLab CI. Works with gitlab.com and self-hosted GitLab.
 Every action works on keys and on Stream Deck + dials (touch strip).
 
 ## Actions
