@@ -61,11 +61,15 @@ First release: Branch Status, Runner Status and Runner Health actions for keys a
 
 ## Links
 
-- **Support / homepage:** https://github.com/wyntersoft/streamdeck-gitlabci (also the manifest's `URL`).
-  The repository must be public for visitors to open it.
-- **Privacy policy:** optional. The text below can be published as one.
+- **Support:** https://www.wyntersoft.com/support
+- **Privacy policy:** https://www.wyntersoft.com/privacy
+- **Homepage:** https://github.com/wyntersoft/streamdeck-gitlabci (the manifest's `URL`; the repository must be
+  public for visitors to open it).
 
 ## Privacy
+
+The listing links to Wyntersoft's privacy policy at https://www.wyntersoft.com/privacy. That page doesn't yet
+mention this plugin; this paragraph covers what the plugin does and can be added to it:
 
 ```
 Pipeline Status for GitLab connects only to the GitLab server you configure. Your access token and settings
@@ -78,7 +82,8 @@ no data to Wyntersoft or anyone else.
 
 - [ ] Elgato account signed in at maker.elgato.com; **Wyntersoft** organization created.
 - [ ] Maker Agreement signed (Settings, by the organization's leader).
-- [ ] GitHub repository https://github.com/wyntersoft/streamdeck-gitlabci is public (it is the support URL).
+- [ ] GitHub repository https://github.com/wyntersoft/streamdeck-gitlabci is public (it is the homepage URL).
+- [ ] https://www.wyntersoft.com/privacy covers the plugin (see Privacy above).
 - [ ] `npm run pack` run after the last change, and the resulting `.streamDeckPlugin` uploaded.
 - [ ] Uncheck "Publish after review" if you want to try the protected (DRM) build before release.
 - [ ] Review takes 4–10 working days; results arrive by email from maker@elgato.com.
