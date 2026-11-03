@@ -144,6 +144,10 @@ function runnerCard(view: Extract<KeyView, { kind: "runner" }>, now: Date): Card
 	return { colors: CYAN, title: view.label, footer, body: { type: "lines", lines: [job.project, job.ref] } };
 }
 
+/** Physical keys hide a few pixels under their rounded corners and bezel; keep text this far from the edges. */
+const KEY_GUTTER = 14;
+const KEY_TEXT_WIDTH = 144 - 2 * KEY_GUTTER;
+
 /** Renders a 144x144 key image. */
 export function renderKey(view: KeyView, now: Date = new Date()): string {
 	const c = card(view, now);
@@ -154,13 +158,18 @@ export function renderKey(view: KeyView, now: Date = new Date()): string {
 			body = drawGlyph(c.body.glyph, fg, c.body.frame);
 			break;
 		case "lines":
-			body = text(fit(c.body.lines[0], 11), 72, 72, 22, "bold", fg) + text(fit(c.body.lines[1], 14), 72, 99, 17, "normal", fg);
+			body = line(c.body.lines[0], 72, 72, 22, "bold", fg, KEY_TEXT_WIDTH) + line(c.body.lines[1], 72, 99, 17, "normal", fg, KEY_TEXT_WIDTH);
 			break;
 		case "rows":
-			body = c.body.rows.map(([value, caption], i) => row(16, 64 + i * 32, value, caption, fg)).join("");
+			body = c.body.rows.map(([value, caption], i) => row(KEY_GUTTER + 2, 64 + i * 32, value, caption, fg)).join("");
 			break;
 	}
-	const svg = canvas(144, 144, c.colors, text(fit(c.title, 12), 72, 30, 20, "bold", fg) + body + text(fit(c.footer, 16), 72, 130, 16, "normal", fg));
+	const svg = canvas(
+		144,
+		144,
+		c.colors,
+		line(c.title, 72, 30, 20, "bold", fg, KEY_TEXT_WIDTH) + body + line(c.footer, 72, 130, 16, "normal", fg, KEY_TEXT_WIDTH),
+	);
 	return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
 }
 
@@ -171,34 +180,37 @@ export function renderKey(view: KeyView, now: Date = new Date()): string {
 export function renderDial(view: KeyView, now: Date = new Date(), position?: string): string {
 	const c = card(view, now);
 	const fg = c.colors.foreground;
+	// Leave room for the position marker in the top-right corner.
+	const wide = 200 - 2 * 10;
+	const column = 200 - 100 - 10;
 	let body: string;
 	switch (c.body.type) {
 		case "glyph":
 			// Glyphs are drawn for a 144px key centred on (72, 74); shrink and move them to the left half.
 			body =
 				`<g transform="translate(${50 - 72 * 0.8} ${52 - 74 * 0.8}) scale(0.8)">${drawGlyph(c.body.glyph, fg, c.body.frame)}</g>` +
-				text(fit(c.title, 9), 100, 36, 19, "bold", fg, "start") +
+				line(c.title, 100, 36, 19, "bold", fg, column, "start") +
 				// The right column is narrow, so "ref · time" goes on two lines.
 				c.footer
 					.split(" · ")
 					.slice(0, 2)
-					.map((part, i) => text(fit(part, 14), 100, 62 + i * 22, 14, "normal", fg, "start"))
+					.map((part, i) => line(part, 100, 62 + i * 22, 14, "normal", fg, column, "start"))
 					.join("");
 			break;
 		case "lines":
 			body =
-				text(fit(c.title, 16), 100, 22, 15, "bold", fg) +
-				text(fit(c.body.lines[0], 15), 100, 50, 21, "bold", fg) +
-				text(fit(c.body.lines[1], 22), 100, 72, 15, "normal", fg) +
-				text(fit(c.footer, 24), 100, 93, 14, "normal", fg);
+				line(c.title, 100, 22, 15, "bold", fg, wide - 60) +
+				line(c.body.lines[0], 100, 50, 21, "bold", fg, wide) +
+				line(c.body.lines[1], 100, 72, 15, "normal", fg, wide) +
+				line(c.footer, 100, 93, 14, "normal", fg, wide);
 			break;
 		case "rows":
 			body =
-				text(fit(c.title, 16), 100, 22, 15, "bold", fg) +
-				c.body.rows.map(([value, caption], i) => text(value, 36 + i * 64, 62, 26, "bold", fg) + text(caption, 36 + i * 64, 86, 14, "normal", fg)).join("");
+				line(c.title, 100, 22, 15, "bold", fg, wide - 60) +
+				c.body.rows.map(([value, caption], i) => line(value, 36 + i * 64, 62, 26, "bold", fg, 60) + line(caption, 36 + i * 64, 86, 14, "normal", fg, 62)).join("");
 			break;
 	}
-	if (position) body += `<text x="194" y="15" font-family="${FONT}" font-size="12" fill="${fg}" fill-opacity="0.75" text-anchor="end">${escapeXml(position)}</text>`;
+	if (position) body += `<text x="190" y="16" font-family="${FONT}" font-size="12" fill="${fg}" fill-opacity="0.75" text-anchor="end">${escapeXml(position)}</text>`;
 	return `data:image/svg+xml;base64,${Buffer.from(canvas(200, 100, c.colors, body)).toString("base64")}`;
 }
 
@@ -209,10 +221,12 @@ function canvas(width: number, height: number, colors: Colors, body: string): st
 	);
 }
 
+/** A bold number followed by a caption. Positioned separately: Stream Deck's renderer ignores `dx` on a tspan. */
 function row(x: number, y: number, value: string, caption: string, color: string): string {
+	const gap = 6;
+	const captionX = x + textWidth(value, 24, "bold") + gap;
 	return (
-		`<text x="${x}" y="${y}" font-family="${FONT}" font-size="24" font-weight="bold" fill="${color}">${escapeXml(value)}` +
-		`<tspan font-size="17" font-weight="normal" dx="6">${escapeXml(caption)}</tspan></text>`
+		text(value, x, y, 24, "bold", color, "start") + line(caption, captionX, y, 17, "normal", color, 144 - KEY_GUTTER - captionX, "start")
 	);
 }
 
@@ -238,6 +252,43 @@ export function formatDuration(ms: number): string {
 /** Truncates text with an ellipsis so it fits on the key. */
 export function fit(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+/**
+ * Approximate rendered width of `value` in a Segoe UI-like font. Deliberately errs wide, so text sized by it stays
+ * inside its box on the device.
+ */
+export function textWidth(value: string, size: number, weight: string): number {
+	let em = 0;
+	for (const ch of value) {
+		if (" il.,:;!|'`ıjI()[]·".includes(ch)) em += 0.3;
+		else if ("ft1r-/".includes(ch)) em += 0.42;
+		else if ("mwMW@%".includes(ch)) em += 0.9;
+		else if (/[A-Z]/.test(ch)) em += 0.66;
+		else if (/[0-9]/.test(ch)) em += 0.57;
+		else em += 0.56;
+	}
+	return em * size * (weight === "bold" ? 1.08 : 1);
+}
+
+/**
+ * Fits `value` into `maxWidth`: shrinks the font by up to 20%, then truncates with an ellipsis. Returns the text and
+ * the font size to draw it at.
+ */
+export function fitLine(value: string, maxWidth: number, size: number, weight: string): { text: string; size: number } {
+	const minSize = Math.ceil(size * 0.8);
+	let current = size;
+	while (current > minSize && textWidth(value, current, weight) > maxWidth) current--;
+	if (textWidth(value, current, weight) <= maxWidth) return { text: value, size: current };
+	let cut = value;
+	while (cut.length > 1 && textWidth(`${cut}…`, current, weight) > maxWidth) cut = cut.slice(0, -1);
+	return { text: `${cut.trimEnd()}…`, size: current };
+}
+
+/** Text fitted into `maxWidth` by {@link fitLine}. */
+function line(value: string, x: number, y: number, size: number, weight: string, color: string, maxWidth: number, anchor: "middle" | "start" = "middle"): string {
+	const fitted = fitLine(value, maxWidth, size, weight);
+	return text(fitted.text, x, y, fitted.size, weight, color, anchor);
 }
 
 function text(value: string, x: number, y: number, size: number, weight: string, color: string, anchor: "middle" | "start" = "middle"): string {

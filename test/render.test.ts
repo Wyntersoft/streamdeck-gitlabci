@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { fit, formatDuration, healthColors, type KeyView, pipelineStyle, progressLines, renderDial, renderKey, timeLabel } from "../src/render.ts";
+import { fit, fitLine, formatDuration, healthColors, type KeyView, pipelineStyle, progressLines, renderDial, renderKey, textWidth, timeLabel } from "../src/render.ts";
 
 const now = new Date("2026-01-01T12:00:00Z");
 const base = { id: 1, ref: "main", sha: "x", webUrl: "u", warnings: false };
@@ -70,8 +70,9 @@ test("health key colours and counts", () => {
 	assert.equal(healthColors({ total: 2, online: 2, busy: 1, queued: 0 }).background, "#00BCD4");
 	assert.equal(healthColors({ total: 2, online: 2, busy: 0 }).background, "#108548");
 	const out = svg({ kind: "health", label: "Runners", fleet: { total: 5, online: 4, busy: 3 } });
-	assert.match(out, /4\/5<tspan[^>]*>online/);
-	assert.match(out, /\?<tspan[^>]*>queued/);
+	assert.match(out, />4\/5<\/text>.*>online</);
+	assert.match(out, />\?<\/text>.*>queued</);
+	assert.doesNotMatch(out, /<tspan/);
 });
 
 test("rendered SVG elements never repeat an attribute", () => {
@@ -129,4 +130,44 @@ test("a paused runner finishing a job shows the job", () => {
 	assert.match(out, />api</);
 	assert.match(out, />paused · 2m</);
 	assert.match(svg({ kind: "runner", label: "r", runner: { ...runner, paused: true }, jobs: [] }), />Paused</);
+});
+
+test("fitLine shrinks, then truncates, to stay inside the width", () => {
+	assert.deepEqual(fitLine("api", 116, 20, "bold"), { text: "api", size: 20 });
+	const shrunk = fitLine("streamdeck-g", 116, 20, "bold");
+	assert.ok(shrunk.size < 20 && shrunk.size >= 16 && !shrunk.text.endsWith("…"));
+	const cut = fitLine("build-runner-1-with-a-long-name", 116, 20, "bold");
+	assert.equal(cut.size, 16);
+	assert.ok(cut.text.endsWith("…") && cut.text.startsWith("build"));
+	assert.ok(textWidth(cut.text, cut.size, "bold") <= 116);
+});
+
+test("key and dial text never reaches into the edge margin", () => {
+	const long = "build-runner-1-really-long";
+	const views: KeyView[] = [
+		{ kind: "runner", label: long, runner, jobs: [] },
+		{ kind: "runner", label: long, runner: { ...runner, busy: true }, jobs: [{ id: 1, name: "build-release-artifacts", stage: "b", ref: "feature/long-branch-name", project: "long-project-name", startedAt: "2026-01-01T11:00:00Z", webUrl: "u" }] },
+		{ kind: "pipeline", label: "long-project-name", pipeline: { ...base, status: "running", ref: "feature/long-branch-name", progress: { running: [], pending: [{ name: "integration-tests", stage: "t" }], queuedSeconds: 60, done: 1, total: 3 } } },
+		{ kind: "health", label: "Runners", fleet: { total: 12, online: 10, busy: 10, queued: 100 } },
+	];
+	const widthOf = (tag: string) => {
+		const [, x] = tag.match(/ x="([\d.]+)"/) ?? [];
+		const [, size] = tag.match(/font-size="(\d+)"/) ?? [];
+		const weight = tag.includes('font-weight="bold"') ? "bold" : "normal";
+		const anchor = tag.includes('text-anchor="start"') ? "start" : tag.includes('text-anchor="end"') ? "end" : "middle";
+		const content = tag.replace(/<[^>]+>/g, "").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
+		const w = textWidth(content, Number(size), weight);
+		const left = anchor === "start" ? Number(x) : anchor === "end" ? Number(x) - w : Number(x) - w / 2;
+		return { left, right: left + w };
+	};
+	for (const view of views) {
+		for (const tag of svg(view).match(/<text[^>]*>[^<]*<\/text>/g) ?? []) {
+			const { left, right } = widthOf(tag);
+			assert.ok(left >= 13.5 && right <= 130.5, `key text outside margin: ${tag}`);
+		}
+		for (const tag of dialSvg(view, "2/5").match(/<text[^>]*>[^<]*<\/text>/g) ?? []) {
+			const { left, right } = widthOf(tag);
+			assert.ok(left >= 4 && right <= 196, `dial text outside strip: ${tag}`);
+		}
+	}
 });
